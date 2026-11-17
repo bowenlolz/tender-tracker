@@ -3,8 +3,8 @@
  "short_name": "標案追蹤",
  "start_url": "./",
  "display": "standalone",
- "background_color": "#f5f6f8",
- "theme_color": "#0f766e",
+ "background_color": "#1e293b",
+ "theme_color": "#1e293b",
  "icons": [
   {
    "src": "icon-192.png",
