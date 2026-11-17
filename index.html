@@ -206,6 +206,7 @@ dl.info dt{color:var(--muted)}
 </div></nav>
 <main>
   <section id="events" class="on">
+    <div id="openbox"></div>
     <div class="seg" id="evseg" style="margin-bottom:12px"><button data-ev="rec" class="on">標案推薦 <span id="rec-n" class="m"></span></button><button data-ev="news">標案動態 <span id="news-n" class="m"></span></button></div>
     <div id="recbox"></div>
     <div id="evlist" hidden></div>
@@ -505,6 +506,14 @@ async function refresh(){
   if (S.company?.name && (!S.recs || Date.now() - new Date(S.recs.built) > 6 * 3600000)) runRecs();
 }
 
+// 新加入追蹤的標案馬上抓一次資料，招標期間、截止日才會立刻出現在最新動態
+async function trackNow(u, j){
+  const t = S.tenders.find(x => x.unit_id === u && x.job_number === j); if (!t || t.last) return;
+  const ev = [];
+  try { await checkTender(t, ev); t.error = ''; } catch(e){ t.error = e.message; }
+  if (ev.length){ ev.forEach(e => { e.found = new Date().toISOString(); e.fresh = true; }); S.events = ev.concat(S.events).slice(0, 300); S.unread = (S.unread || 0) + ev.length; }
+  save(); render();
+}
 // ---------- 畫面 ----------
 function fmtTime(iso){ if (!iso) return ''; const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 function render(){
@@ -514,6 +523,7 @@ function render(){
   const tagCls = k => k === '正式上網' ? 'hot' : k === '廠商得標' ? 'ok' : k === '廠商未得標' ? 'no' : k === '標案進度' ? 't-tender' : '';
   // 追蹤中、還在招標期間（截止投標前）的標案，依截止時間排序放在最上面
   const open = S.tenders.map((t, i) => ({ t, L: t.last || {} }))
+    .map(o => ({ ...o, L: { ...o.L, deadline: o.L.deadline || o.t.deadline, status: o.L.status || o.t.type || '' } }))
     .filter(({ L }) => L.deadline && !L.award && !/決標/.test(L.status || '') && rocToDate(L.deadline) > Date.now())
     .sort((a, b) => rocToDate(a.L.deadline) - rocToDate(b.L.deadline));
   $('#news-n').textContent = [open.length && `${open.length} 招標中`, S.unread && `${S.unread} 新`].filter(Boolean).join('・') ? `(${[open.length && `${open.length} 招標中`, S.unread && `${S.unread} 新`].filter(Boolean).join('・')})` : '';
@@ -527,14 +537,15 @@ function render(){
           <div class="m">截止投標 ${esc(L.deadline)}（${cd}）${L.open ? '｜開標 ' + esc(L.open) : ''}${L.budget ? '｜預算 ' + money(L.budget) : ''}</div>
         </div></div>`; }).join('')}
     <p class="m" style="margin:6px 0 0">依「標案」分頁追蹤的案子整理，按「立即更新」會重新抓最新截止時間與更正公告。</p></div>` : '';
-  $('#evlist').innerHTML = openHtml + (S.events.length ? '<div class="grid">' + S.events.map(e => `
+  $('#openbox').innerHTML = openHtml;
+  $('#evlist').innerHTML = (S.events.length ? '<div class="grid">' + S.events.map(e => `
     <div class="card ${e.fresh ? 'new' : ''}">
       <div class="row"><span class="tag ${tagCls(e.kind)}">${esc(e.kind)}</span>${e.fresh ? '<span class="m">新</span>' : ''}</div>
       <div class="m" style="margin-top:4px">${esc(e.headline)}</div>
       <div class="t" style="margin-top:4px">${e.u ? `<a href="#" class="open" data-u="${esc(e.u)}" data-j="${esc(e.j)}">${esc(e.title)}</a>` : `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`}</div>
       <div class="m">${esc(e.unit)}｜公告 ${d8(e.date)}${e.amount ? '｜<span class="money">' + money(e.amount) + '</span>' : ''}</div>
     </div>`).join('') + '</div>'
-    : openHtml ? '' : `<div class="empty">${S.tenders.length || S.vendors.length ? '目前沒有新動態。<br>第一次更新只會建立基準，之後有新公告才會出現在這裡；<br>「正式上網」則是一出現就會通知。' : '還沒有追蹤任何東西。<br>到「搜尋／加入」找標案或廠商。'}</div>`);
+    : `<div class="empty">${S.tenders.length || S.vendors.length ? '目前沒有新動態。<br>第一次更新只會建立基準，之後有新公告才會出現在這裡；<br>「正式上網」則是一出現就會通知。' : '還沒有追蹤任何東西。<br>到「搜尋／加入」找標案或廠商。'}</div>`);
 
   $('#tenders').innerHTML = S.tenders.length ? '<div class="grid">' + S.tenders.map((t, i) => {
     const L = t.last || {};
@@ -796,7 +807,7 @@ $('#results').onclick = e => {
     if (S.tenders.some(t => t.unit_id === d.u && t.job_number === d.j)) return toast('已經在追蹤了');
     const t = { unit_id: d.u, job_number: d.j, title: d.t, unit: d.un, note: '' };
     if (d.w){ t.wait_formal = true; t.since = d.d; }
-    S.tenders.unshift(t);
+    S.tenders.unshift(t); trackNow(t.unit_id, t.job_number);
     toast(d.w ? '已加入，正式上網時會通知' : '已加入追蹤');
   } else {
     const d = b.dataset;
@@ -967,7 +978,7 @@ $('#sheet').addEventListener('click', e => {
   const d = b.dataset;
   const t = { unit_id: d.u, job_number: d.j, title: d.t, unit: d.un, note: '' };
   if (d.w){ t.wait_formal = true; t.since = d.d; }
-  if (!S.tenders.some(x => x.unit_id === d.u && x.job_number === d.j)) S.tenders.unshift(t);
+  if (!S.tenders.some(x => x.unit_id === d.u && x.job_number === d.j)){ S.tenders.unshift(t); trackNow(d.u, d.j); }
   save(); render(); b.replaceWith(Object.assign(document.createElement('span'), { className: 'm', textContent: '✓ 已加入追蹤' }));
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
@@ -1281,7 +1292,7 @@ $('#recbox').addEventListener('click', e => {
   const kx = e.target.closest('[data-kwx]'); if (kx){ S.kwExtra = (S.kwExtra || []).filter(x => x !== kx.dataset.kwx); save(); renderRecs('關鍵字已調整，按「更新推薦」套用'); $('#recbox details').open = true; return; }
   if (e.target.id === 'kw-add-b'){ const v = $('#kw-add').value.trim(); if (v && !(S.kwExtra || []).includes(v)){ S.kwExtra = [...(S.kwExtra || []), v]; save(); } renderRecs('關鍵字已調整，按「更新推薦」套用'); $('#recbox details').open = true; return; }
   const h = e.target.closest('[data-hide]'); if (h){ S.recHidden = [...(S.recHidden || []), h.dataset.hide].slice(-500); save(); renderRecs(); toast('已隱藏，不會再推薦這件'); return; }
-  const b = e.target.closest('[data-rt]'); if (b){ const d = b.dataset; const t = { unit_id: d.u, job_number: d.j, title: d.t, unit: d.un, note: '' }; if (d.w){ t.wait_formal = true; t.since = d.d; } if (!S.tenders.some(x => x.unit_id === d.u && x.job_number === d.j)) S.tenders.unshift(t); save(); render(); b.replaceWith(Object.assign(document.createElement('span'), { className: 'm', textContent: '✓ 已追蹤' })); toast(d.w ? '已加入，正式上網時會通知' : '已加入追蹤'); }
+  const b = e.target.closest('[data-rt]'); if (b){ const d = b.dataset; const t = { unit_id: d.u, job_number: d.j, title: d.t, unit: d.un, note: '' }; if (d.w){ t.wait_formal = true; t.since = d.d; } if (!S.tenders.some(x => x.unit_id === d.u && x.job_number === d.j)) { S.tenders.unshift(t); trackNow(d.u, d.j); } save(); render(); b.replaceWith(Object.assign(document.createElement('span'), { className: 'm', textContent: '✓ 已追蹤' })); toast(d.w ? '已加入，正式上網時會通知' : '已加入追蹤'); }
 });
 $('#recbox').addEventListener('change', e => { if (e.target.id === 'rec-days'){ S.recDays = +e.target.value; save(); runRecs(); } if (e.target.id === 'rec-sort'){ S.recSort = e.target.value; save(); renderRecs(); } });
 document.querySelectorAll('#evseg button').forEach(b => b.onclick = () => {
@@ -1383,6 +1394,7 @@ async function checkFresh(force){
   save(); renderFresh();
 }
 renderFresh(); checkFresh();
+S.tenders.filter(t => !t.last).forEach(t => trackNow(t.unit_id, t.job_number));
 
 render();
 // 打開就自動更新（距離上次超過 10 分鐘）
