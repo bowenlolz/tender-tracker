@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="標案追蹤">
+<meta name="theme-color" content="#0f766e">
+<title>標案追蹤</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f5f6f8; --card:#ffffff; --ink:#1f2937; --muted:#6b7280; --line:#e3e6eb;
+  --primary:#0f766e; --primary-soft:#e3f2ef;
+  --accent:#f97316; --accent-soft:#fff1e6; --ok:#16a34a; --ok-soft:#e5f7ec; --no:#dc2626; --no-soft:#fdeaea;
+  --radius:16px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#eef1f6 0,var(--bg) 260px) no-repeat,var(--bg);color:var(--ink);font:16px/1.55 -apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;-webkit-text-size-adjust:100%;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+header{padding:18px 18px 8px;max-width:900px;margin:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:26px;margin:0;letter-spacing:.04em;color:var(--primary)}
+#updated{font-size:13px;color:var(--muted)}
+nav{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .in{display:flex;gap:4px;max-width:900px;margin:auto;padding:6px 12px;overflow-x:auto}
+nav button{flex:none;border:0;background:none;color:var(--muted);font:inherit;font-size:15px;padding:8px 12px;border-radius:999px;cursor:pointer}
+nav button.on{background:var(--primary);color:#fff}
+nav .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:999px;background:var(--accent);color:#fff;font-size:12px;line-height:18px;text-align:center}
+main{max-width:900px;margin:auto;padding:14px 12px 80px}
+section{display:none}section.on{display:block}
+@media (min-width:760px){ .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start} .grid .card{margin:0} }
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin:0 0 10px;box-shadow:0 1px 2px rgba(31,42,40,.04),0 4px 14px rgba(31,41,55,.05)}
+.card.new{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{flex:1;min-width:0}
+.t{font-weight:600;line-height:1.4}
+.m{color:var(--muted);font-size:13.5px}
+a{color:var(--primary);text-decoration:none}a:hover{text-decoration:underline}
+.tag{display:inline-block;font-size:12.5px;padding:2px 9px;border-radius:999px;background:var(--primary-soft);color:var(--primary);white-space:nowrap;font-weight:500}
+.tag.hot{background:var(--accent);color:#fff}.tag.wait{background:none;border:1px dashed var(--muted);color:var(--muted)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}.tag.no{background:var(--no-soft);color:var(--no)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 4px}
+.stat{background:var(--primary-soft);border-radius:10px;padding:8px 10px}
+.stat b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--muted);font-size:14px;margin-top:8px}
+ul.list{list-style:none;margin:8px 0 0;padding:0}
+ul.list li{padding:8px 0;border-top:1px dashed var(--line);font-size:14.5px}
+.tl{border-left:2px solid var(--line);margin:10px 0 0 4px;padding-left:12px}
+.tl div{position:relative;font-size:14px;padding:3px 0}
+.tl div:before{content:"";position:absolute;left:-17px;top:11px;width:8px;height:8px;border-radius:50%;background:var(--line)}
+.tl div:last-child:before{background:var(--primary)}
+input,select,textarea{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--primary-soft);border-color:var(--primary)}
+textarea{font-size:12px;font-family:ui-monospace,Menlo,monospace;min-height:120px}
+button.b,label.b{font:inherit;font-size:14.5px;border:1px solid var(--primary);background:var(--primary);color:#fff;padding:8px 14px;border-radius:10px;cursor:pointer;white-space:nowrap}
+button.g,label.g{background:#fff;color:var(--primary)}
+button.s{font-size:13px;padding:4px 10px}
+button:disabled{opacity:.5}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;max-width:90vw;z-index:9}
+.toast.on{opacity:1}
+.money{font-variant-numeric:tabular-nums}
+.warn{background:var(--no-soft);color:var(--no);border-color:transparent}
+.bar{height:3px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--primary);transition:width .2s}
+.note{width:100%;border:0;border-bottom:1px dashed var(--line);border-radius:0;padding:4px 0;font-size:13.5px;background:none}
+a.open{cursor:pointer}
+.sheet{position:fixed;inset:0;z-index:20;display:none;background:rgba(31,42,40,.35);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+.sheet.on{display:flex;align-items:flex-end;justify-content:center}
+.sheet .box{background:var(--bg);width:100%;max-width:760px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:0 0 calc(24px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+@media (min-width:760px){ .sheet.on{align-items:center} .sheet .box{border-radius:20px;max-height:88vh} }
+.sheet .top{position:sticky;top:0;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line);padding:14px 16px;display:flex;gap:10px;align-items:flex-start;z-index:1}
+.sheet .top h2{font-size:18px;margin:0;line-height:1.4;flex:1}
+.sheet .x{border:0;background:var(--primary-soft);color:var(--primary);width:34px;height:34px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer;flex:none}
+.sheet .body{padding:12px}
+.kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media (min-width:560px){ .kpi{grid-template-columns:repeat(4,1fr)} }
+.kpi div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi b{display:block;font-size:17px;line-height:1.3;font-variant-numeric:tabular-nums}
+.kpi span{font-size:12px;color:var(--muted)}
+.kpi .hl{background:var(--accent-soft);border-color:#fed7aa}.kpi .hl b{color:#c2410c}
+dl.info{display:grid;grid-template-columns:7.5em 1fr;gap:6px 12px;margin:0;font-size:14.5px}
+dl.info dt{color:var(--muted)}dl.info dd{margin:0;white-space:pre-line;word-break:break-word}
+.sec{font-size:13px;font-weight:600;color:var(--primary);letter-spacing:.05em;margin:0 0 8px}
+table.bid{width:100%;border-collapse:collapse;font-size:14px}
+table.bid th,table.bid td{text-align:left;padding:7px 4px;border-top:1px dashed var(--line);vertical-align:top}
+table.bid th{color:var(--muted);font-weight:400;border-top:0}
+.long{max-height:7.5em;overflow:hidden;position:relative}
+.long.open{max-height:none}
+.more{border:0;background:none;color:var(--primary);font:inherit;font-size:13.5px;padding:4px 0;cursor:pointer}
+.seg{display:flex;gap:4px;background:var(--primary-soft);padding:4px;border-radius:12px;overflow-x:auto}
+.seg button{flex:1;border:0;background:none;font:inherit;font-size:14.5px;color:var(--primary);padding:7px 10px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.seg button.on{background:#fff;box-shadow:0 1px 3px rgba(31,42,40,.12);font-weight:600}
+.filters{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+@media (min-width:760px){ .filters{grid-template-columns:repeat(4,1fr)} }
+.filters .f{display:flex;flex-direction:column;font-size:12.5px;color:var(--muted);gap:3px}
+.filters .f input,.filters .f select{padding:8px 10px;font-size:14.5px}
+.filters .ck{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink)}
+.filters .ck input{width:auto}
+.filters.title-mode .u-only{display:none}
+.sug{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(31,42,40,.12);max-height:320px;overflow-y:auto;z-index:8}
+.sug div{padding:9px 12px;cursor:pointer;font-size:14.5px;border-top:1px solid var(--line)}
+.sug div:first-child{border-top:0}
+.sug div:hover,.sug div.on{background:var(--primary-soft)}
+.sug small{color:var(--muted);margin-left:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-size:13px;padding:3px 10px;border-radius:999px;cursor:pointer}
+.chips button:hover{border-color:var(--primary);color:var(--primary)}
+.amt{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+nav .badge[hidden]{display:none}
+.stats.s4{grid-template-columns:repeat(2,1fr)}
+@media (min-width:640px){ .stats.s4{grid-template-columns:repeat(4,1fr)} }
+.presets{margin-top:12px}
+.presets .g{font-size:12.5px;color:var(--muted);margin:8px 0 2px;display:flex;gap:8px;align-items:center}
+.presets .g button{border:0;background:none;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer;padding:0}
+.presets .chips{margin-top:4px}
+.presets .chips button.cur{background:var(--primary);color:#fff;border-color:var(--primary)}
+.presets summary.g{list-style:none;color:var(--primary);font-weight:600}
+.presets summary.g::-webkit-details-marker{display:none}
+.presets summary.g::before{content:'▸ 展開'}
+.presets details[open] summary.g::before{content:'▾ 收起'}
+.chips button.cur{background:var(--primary);color:#fff;border-color:var(--primary)}
+#sh-back{margin-right:4px}
+table.bid td.money{white-space:nowrap}
+.rec .score{display:inline-block;min-width:44px;text-align:center;font-weight:700;font-size:13px;border-radius:8px;padding:2px 6px;background:var(--primary);color:#fff}
+.rec .why{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.rec .why span{font-size:12px;background:var(--primary-soft);color:var(--primary);border-radius:6px;padding:1px 7px}
+.prof .chips button.off{text-decoration:line-through;opacity:.5}
+.prof dl.info{grid-template-columns:5.5em 1fr;font-size:13.5px}
+
+/* ---- 多色系：主色只用在按鈕，其他用中性灰與分類色 ---- */
+:root{ --blue:#2563eb; --blue-soft:#e8f0fe; --violet:#7c3aed; --violet-soft:#f1eafe; --amber:#b45309; --amber-soft:#fef3c7; --rose:#be123c; --rose-soft:#ffe4e9; --slate-soft:#eef0f3; }
+nav button.on{background:var(--ink)}
+.seg{background:var(--slate-soft)}
+.seg button{color:var(--muted)}
+.seg button.on{color:var(--ink)}
+.stat{background:var(--slate-soft)}
+.sec{color:var(--ink);border-left:3px solid var(--primary);padding-left:8px}
+.t a,ul.list a,a.open,a.openv{color:var(--ink)}
+.t a:hover,a.open:hover,a.openv:hover{color:var(--primary)}
+a.open,a.openv{text-decoration:none;font-weight:600}
+table.bid a.openv,ul.list a.openv{font-weight:500;color:var(--blue)}
+.tag{background:var(--slate-soft);color:#374151}
+.tag.t-tender{background:var(--blue-soft);color:var(--blue)}
+.tag.wait,.tag.t-view{background:var(--violet-soft);color:var(--violet);border:1px dashed #c4b5fd}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.no{background:var(--no-soft);color:var(--no)}
+.tag.hot{background:var(--accent);color:#fff;border:0}
+.chips button{background:#fff}
+.rec .score{background:#64748b}
+.rec .score.s-hi{background:#ea580c}
+.rec .score.s-mid{background:var(--blue)}
+.rec .why span{background:var(--slate-soft);color:#374151}
+.rec .why span.w-unit{background:var(--blue-soft);color:var(--blue)}
+.rec .why span.w-cat{background:var(--violet-soft);color:var(--violet)}
+.rec .why span.w-kw{background:var(--amber-soft);color:var(--amber)}
+.rec .why span.w-budget{background:var(--ok-soft);color:var(--ok)}
+.rec .why span.w-region{background:var(--rose-soft);color:var(--rose)}
+.rec .why span.w-view{background:var(--violet-soft);color:var(--violet)}
+.kpi .hl{background:#fff4ea}
+dl.info dt{color:var(--muted)}
+.amt{color:var(--ink)}
+.presets summary.g{color:var(--ink)}
+.chips button.cur,.presets .chips button.cur{background:var(--ink);border-color:var(--ink);color:#fff}
+.tag.again{background:var(--amber-soft);color:var(--amber)}
+.times b{font-weight:500}
+.times b.soon{color:#c2410c;font-weight:700}
+.rounds{list-style:none;margin:0;padding:0}
+.rounds li{padding:10px 0;border-top:1px dashed var(--line)}
+.rounds li:first-child{border-top:0;padding-top:2px}
+.rounds .fail{color:var(--no)}
+.fresh{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.fresh i{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+.fresh.warn{background:var(--no-soft);color:var(--no);border-radius:10px;padding:8px 12px;font-size:14px;line-height:1.5;display:block}
+.fresh.warn a{color:var(--no);font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <h1>標案追蹤</h1>
+  <span id="updated" class="sp">尚未檢查</span>
+  <button class="b" id="refresh">立即更新</button>
+  <div class="bar" id="bar" style="flex-basis:100%"><i></i></div>
+  <div class="m" id="status" style="flex-basis:100%;min-height:0"></div>
+  <div id="fresh" style="flex-basis:100%"></div>
+</header>
+<nav><div class="in">
+  <button data-tab="events" class="on">最新動態<span class="badge" id="badge" hidden></span></button>
+  <button data-tab="tenders">標案</button>
+  <button data-tab="vendors">廠商</button>
+  <button data-tab="search">搜尋／加入</button>
+  <button data-tab="backup">設定</button>
+</div></nav>
+<main>
+  <section id="events" class="on">
+    <div class="seg" id="evseg" style="margin-bottom:12px"><button data-ev="rec" class="on">標案推薦 <span id="rec-n" class="m"></span></button><button data-ev="news">標案動態 <span id="news-n" class="m"></span></button></div>
+    <div id="recbox"></div>
+    <div id="evlist" hidden></div>
+  </section>
+  <section id="tenders"></section>
+  <section id="vendors"></section>
+  <section id="search">
+    <div class="card">
+      <div class="seg" id="mode">
+        <button data-m="unit" class="on">依機關</button><button data-m="title">標案名稱</button><button data-m="name">廠商名稱</button><button data-m="id">統一編號</button>
+      </div>
+      <div class="row" style="margin-top:10px;position:relative">
+        <input id="q" placeholder="輸入機關名稱，例如：彰化縣政府" style="flex:1;min-width:160px" enterkeyhint="search" autocomplete="off">
+        <button class="b" id="go">搜尋</button>
+        <div class="sug" id="sug" hidden></div>
+      </div>
+      <div class="filters" id="filters">
+        <label class="f u-only">單位<input id="f_dept" placeholder="例如：水利資源處"></label>
+        <label class="f">類型<select id="f_type">
+          <option value="">全部公告</option>
+          <option value="招標">招標公告（各種）</option>
+          <option value="公開招標公告">公開招標公告</option>
+          <option value="公開取得報價單或企劃書公告">公開取得報價單或企劃書</option>
+          <option value="經公開評選或公開徵求之限制性招標公告">限制性招標（公開評選）</option>
+          <option value="招標文件公開閱覽公告資料公告">公開閱覽</option>
+          <option value="決標公告">決標公告</option>
+          <option value="無法決標公告">無法決標公告</option>
+        </select></label>
+        <label class="f">期間<select id="f_days">
+          <option value="7">近 7 天</option><option value="30" selected>近 30 天</option><option value="90">近 3 個月</option><option value="365">近 1 年</option><option value="0">不限</option>
+        </select></label>
+        <label class="f">名稱含<input id="f_kw" placeholder="例如：管線、標線"></label>
+        <label class="ck u-only"><input type="checkbox" id="f_child" checked> 含下屬機關</label>
+      </div>
+      <div id="presets"></div>
+      <p class="m" id="hint" style="margin:8px 0 0">機關名稱可以只打一部分，從下拉清單挑選最準。點標案名稱看完整資料；「公開閱覽」的案子可以按「正式上網時通知我」。</p>
+    </div>
+    <div id="unitinfo"></div>
+    <div id="results"></div>
+    <div id="more" style="text-align:center"></div>
+  </section>
+  <section id="backup">
+    <div class="card" id="co-card">
+      <div class="t">我的公司</div>
+      <p class="m" style="margin:4px 0 10px">標案推薦會用這家公司的歷次投標紀錄，找出最近類似的公開閱覽和招標案。可以隨時換成其他公司。</p>
+      <label class="m">統一編號</label>
+      <div class="row"><input id="co-id" placeholder="8 碼統一編號" inputmode="numeric" maxlength="8" style="flex:1;min-width:140px"><button class="b g" id="co-find">用統編查公司</button></div>
+      <label class="m" style="display:block;margin-top:10px">公司全名</label>
+      <input id="co-name" placeholder="例如：○○營造有限公司">
+      <div class="m" id="co-msg" style="margin-top:6px;min-height:1.2em"></div>
+      <div class="row" style="margin-top:8px"><button class="b" id="co-save">儲存並分析</button><span class="sp"></span><span class="m" id="co-cur"></span></div>
+      <div id="co-recent"></div>
+    </div>
+    <div class="card">
+      <div class="t">在手機、平板、電腦之間搬移追蹤清單</div>
+      <p class="m">每台裝置的追蹤清單分開存。在一台按「複製備份」，到另一台貼上後按「匯入」。</p>
+      <div class="row"><button class="b" id="exp">複製備份</button><button class="b g" id="dl">下載備份檔</button><label class="b g" style="display:inline-block">選擇備份檔<input type="file" id="file" accept=".json,application/json" hidden></label></div>
+      <textarea id="io" placeholder="把備份內容貼在這裡" style="margin-top:10px"></textarea>
+      <div class="row" style="margin-top:8px"><button class="b" id="imp">匯入（取代目前清單）</button><button class="b g" id="merge">合併</button></div>
+    </div>
+    <div class="card">
+      <div class="t">選填：歐噴 API token</div>
+      <p class="m">建議填寫：免費 API 沒填 token 時查詢速度受限，追蹤項目多時更新會比較慢或失敗。到 <a href="https://data.openfun.tw/user" target="_blank" rel="noopener">data.openfun.tw</a> 免費申請。</p>
+      <input id="tok" type="password" autocomplete="off" placeholder="ofk_...">
+      <div class="row" style="margin-top:8px"><button class="b g" id="savetok">儲存</button></div>
+    </div>
+    <div class="card m">資料來源：g0v／歐噴 <a href="https://pcc-api.openfun.app/" target="_blank" rel="noopener">pcc-api</a>，收集自政府電子採購網，每日更新，可能比採購網晚幾小時到一天；正式投標請以<a href="https://web.pcc.gov.tw/" target="_blank" rel="noopener">政府電子採購網</a>為準。個人、非營利使用。</div>
+  </section>
+</main>
+<div class="sheet" id="sheet"><div class="box"><div class="top"><button class="x" id="sh-back" aria-label="返回" hidden>‹</button><h2 id="sh-title">標案資料</h2><button class="x" id="sh-x" aria-label="關閉">×</button></div><div class="body" id="sh-body"></div></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://pcc-api.openfun.app';
+const VIEWER = 'https://openfunltd.github.io/pcc-viewer';
+const KEY = 'pcc_standalone_v1';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const d8 = d => (d = String(d || '')).length === 8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)}` : d;
+const money = n => n ? (n >= 1e8 ? (n/1e8).toFixed(2).replace(/\.?0+$/,'') + ' 億' : n >= 1e4 ? Math.round(n/1e4).toLocaleString() + ' 萬' : n.toLocaleString()) + ' 元' : '';
+const tlink = (u, j) => `${VIEWER}/tender.html?unit_id=${encodeURIComponent(u)}&job_number=${encodeURIComponent(j)}`;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2800); }
+
+// ---------- 儲存 ----------
+let memStore = null;
+function blank(){ return { vendors: [], tenders: [], events: [], lastCheck: null, unread: 0, token: '', company: { id: '', name: '' }, companies: [], profiles: {}, profile: null, recs: null, recHidden: [], kwExtra: [], kwOff: [], recDays: 14 }; }
+function load(){
+  try { const s = localStorage.getItem(KEY); return s ? Object.assign(blank(), JSON.parse(s)) : blank(); }
+  catch(e){ return memStore || blank(); }
+}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){ memStore = S; } }
+let S = load();
+
+// ---------- API ----------
+// 免費 API 有流量限制（約每 2–3 秒一次），所以所有查詢排隊、一次一個、間隔送出，失敗自動重試
+let apiChain = Promise.resolve(), lastCall = 0;
+const GAP = 2600;
+function api(path, params){
+  const run = () => apiOnce(path, params);
+  const p = apiChain.then(run, run);
+  apiChain = p.catch(() => {});
+  return p;
+}
+async function apiOnce(path, params){
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) (Array.isArray(v) ? v : [v]).forEach(x => qs.append(k, x));
+  const headers = S.token ? { Authorization: 'Bearer ' + S.token } : {};
+  let err;
+  for (let i = 0; i < 5; i++){
+    const wait = lastCall + GAP * (i ? 2 * i : 1) - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastCall = Date.now();
+    try {
+      const r = await fetch(`${API}${path}?${qs}`, { headers });
+      if (r.status === 429 || r.status >= 500) throw new Error('API 忙碌（' + r.status + '）');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } catch(e){ err = e; if (i) setStatus(`API 忙碌，自動重試中（${i + 1}/5）…`); }
+  }
+  throw new Error(/fetch|network|load/i.test(err?.message || '') ? '連不到資料來源（網路不通，或 API 流量限制）' : err.message);
+}
+function setStatus(msg){ const el = document.querySelector('#status'); if (el){ el.textContent = msg; clearTimeout(el._h); el._h = setTimeout(() => el.textContent = '', 4000); } }
+
+// ---------- 解析 ----------
+function pick(detail, re){
+  if (!detail || typeof detail !== 'object') return null;
+  for (const [k, v] of Object.entries(detail)) if (v != null && v !== '' && re.test(k)) return v;
+  return null;
+}
+function amount(v){ if (v == null) return null; const m = String(v).match(/[\d,]+/); return m ? parseInt(m[0].replace(/,/g,''), 10) || null : null; }
+const WIN = /(^|[:\s])得標廠商/;
+function roleOf(r, v){
+  const c = r.brief?.companies || {};
+  let keys = [];
+  companies(c).forEach(o => { if ((v.id && o.id === v.id) || (v.name && (o.name.includes(v.name) || v.name.includes(o.name)))) keys = keys.concat(o.keys); });
+  const j = keys.join(' ');
+  return WIN.test(j) ? '得標' : j.includes('未得標廠商') ? '未得標' : j.includes('投標廠商') ? '投標' : '相關';
+}
+function winners(r){ return Object.entries(r.brief?.companies?.name_key || {}).filter(([, ks]) => ks.some(k => WIN.test(k))).map(([n]) => n); }
+function companies(c){
+  // ids 與 names 不一定一一對應（names 可能多了英文名），用 id_key / name_key 的欄位前綴配對
+  const out = [], idKey = c.id_key || {}, nameKey = c.name_key || {}, used = new Set();
+  for (const [id, ks] of Object.entries(idKey)){
+    const pre = new Set(ks.map(k => k.replace(/:[^:]+$/, '')));
+    const cands = Object.keys(nameKey).filter(n => nameKey[n].some(k => pre.has(k.replace(/:[^:]+$/, ''))));
+    const name = cands.find(n => !/^[\x00-\x7F]+$/.test(n)) || cands[0];
+    if (name) used.add(name);
+    out.push({ id, name: name || id, keys: [...ks, ...(name ? nameKey[name] : [])] });
+  }
+  for (const [n, ks] of Object.entries(nameKey)) if (!used.has(n) && !out.some(o => o.name === n)) out.push({ id: '', name: n, keys: ks });
+  return out.filter(o => o.id || !/^[\x00-\x7F]+$/.test(o.name));
+}
+const typeCls = t => /公開閱覽/.test(t || '') ? 't-view' : /無法決標/.test(t || '') ? 'no' : /決標/.test(t || '') ? 'ok' : /招標|公開取得|公開評選/.test(t || '') ? 't-tender' : '';
+// 招標歷程：每次正式招標算一輪，接著的無法決標公告記下流標／廢標原因
+function roundsOf(recs){
+  const rs = [...recs].sort((a, b) => (String(a.date) + a.filename).localeCompare(String(b.date) + b.filename));
+  const out = { view: null, rounds: [] };
+  for (const r of rs){
+    const t = r.brief?.type || '', d = (r.detail && typeof r.detail === 'object') ? r.detail : {};
+    const pick1 = re => { for (const [k, v] of Object.entries(d)) if (typeof v === 'string' && v.trim() && re.test(k)) return v.trim(); return ''; };
+    if (/公開閱覽/.test(t) && !/更正/.test(t)){ out.view = { date: r.date, period: pick1(/:公開閱覽日期$/) }; continue; }
+    if (isFormal(t)){
+      out.rounds.push({ n: out.rounds.filter(x => x.n > 0).length + 1, date: r.date, posted: pick1(/:公告日$/), deadline: pick1(/:截止投標$/), open: pick1(/:開標時間$/), status: pick1(/:招標狀態$/), type: t, url: d.url });
+      continue;
+    }
+    const cur = out.rounds.at(-1);
+    if (/無法決標/.test(t)){
+      const reason = pick1(/:無法決標的理由$/) || '無法決標';
+      // 無法決標公告會寫「原招標公告之刊登採購公報日期」，用它找出是哪一次招標流標
+      const orig = pick1(/原招標公告之刊登採購公報日期$/);
+      const tgt = (orig && out.rounds.find(x => x.n > 0 && x.posted === orig)) || cur;
+      if (tgt){ if (!tgt.fail || /更正/.test(t)) tgt.fail = { date: r.date, reason, url: d.url }; }
+      else out.rounds.push({ n: 0, date: r.date, fail: { date: r.date, reason, url: d.url } });
+    } else if (/決標/.test(t) && cur && !cur.fail) cur.award = { date: r.date, url: d.url };
+    else if (/更正/.test(t) && cur) cur.corrected = (cur.corrected || 0) + 1, cur.deadline = pick1(/:截止投標$/) || cur.deadline;
+  }
+  return out;
+}
+const failShort = s => String(s || '').replace(/\(.*?\)|（.*?）/g, '').trim() || s;
+const isFormal = t => /招標|公開取得|公開評選/.test(t || '') && !/公開閱覽|更正|決標|預告|公開徵求廠商提供參考資料|變賣|出租|定期彙送/.test(t || '');
+const normTitle = s => (s || '').replace(/[\s\p{P}\p{S}]+/gu, '');
+const titleQuery = s => (s || '').split(/[\s\p{P}\p{S}]+/u).filter(w => w.length >= 2).slice(0, 6).join(' ');
+
+// ---------- 檢查 ----------
+async function checkVendor(v, newEvents){
+  const ret = await api(v.id ? '/api/searchbycompanyid' : '/api/searchbycompanyname', { query: v.id || v.name, 'columns[]': ['決標資料:總決標金額', '已公告資料:預算金額', '採購資料:預算金額'] });
+  const firstRun = !v.seen?.length; v.seen ||= [];
+  const seen = new Set(v.seen), label = v.label || v.name || v.id;
+  const recent = (ret.records || []).map(r => {
+    const item = { date: r.date, type: r.brief?.type, title: r.brief?.title, unit: r.unit_name, role: roleOf(r, v),
+      amount: amount(pick(r.detail, /總決標金額$/)) || amount(pick(r.detail, /預算金額$/)), link: tlink(r.unit_id, r.job_number), u: r.unit_id, j: r.job_number };
+    const rid = r.date + '/' + r.filename;
+    if (!seen.has(rid)){
+      seen.add(rid); v.seen.push(rid);
+      if (!firstRun) newEvents.push({ kind: item.role === '相關' ? '廠商新公告' : '廠商' + item.role, headline: `${label}｜${item.type || ''}`, title: item.title, unit: item.unit, date: item.date, amount: item.amount, link: item.link, u: item.u, j: item.j });
+    }
+    return item;
+  });
+  v.seen = v.seen.slice(-2000);
+  const awards = recent.filter(x => /決標/.test(x.type || '') && x.role !== '相關'), won = awards.filter(x => x.role === '得標');
+  v.last = { total: ret.total_records, awards: awards.length, won: won.length, wonAmount: won.reduce((a, x) => a + (x.amount || 0), 0), recent: recent.slice(0, 50) };
+}
+
+async function checkTender(t, newEvents){
+  const firstRun = !t.seen?.length; t.seen ||= []; t.linked ||= [];
+  const seen = new Set(t.seen);
+  const ret = await api('/api/tender', { unit_id: t.unit_id, job_number: t.job_number });
+  const unitName = ret.unit_name || t.unit || '';
+  let recs = [...(ret.records || [])];
+  for (const [u, j] of t.linked) recs = recs.concat((await api('/api/tender', { unit_id: u, job_number: j })).records || []);
+
+  if (t.wait_formal && !t.formal_found && !recs.some(r => isFormal(r.brief?.type))){
+    const title = t.title || recs.find(r => r.brief?.title)?.brief.title || '';
+    const q = titleQuery(title);
+    if (q){
+      const sr = await api('/api/searchbytitle', { query: q });
+      const nt = normTitle(title);
+      const hit = (sr.records || []).find(r => {
+        if (!isFormal(r.brief?.type)) return false;
+        if (t.since && String(r.date) < t.since) return false;
+        const rt = normTitle(r.brief?.title), un = r.unit_name || '';
+        const sameJob = String(r.job_number) === String(t.job_number);
+        const sameTitle = rt && (rt === nt || (nt.length >= 6 && (rt.includes(nt) || nt.includes(rt))));
+        const sameUnit = !unitName || !un || un.includes(unitName.slice(0,4)) || unitName.includes(un.slice(0,4));
+        return (sameJob || sameTitle) && sameUnit;
+      });
+      if (hit && !(hit.unit_id === t.unit_id && hit.job_number === t.job_number)){
+        t.linked.push([hit.unit_id, hit.job_number]);
+        recs = recs.concat((await api('/api/tender', { unit_id: hit.unit_id, job_number: hit.job_number })).records || []);
+      }
+    }
+  }
+  const uniq = new Map(); recs.forEach(r => uniq.set(r.date + '/' + r.filename, r));
+  recs = [...uniq.values()].sort((a, b) => (a.date + a.filename).localeCompare(b.date + b.filename));
+
+  const evStart = newEvents.length;
+  const L = { timeline: [], winners: [], unit: unitName };
+  for (const r of recs){
+    const d = (r.detail && typeof r.detail === 'object') ? r.detail : {};
+    L.title = r.brief?.title || L.title;
+    L.deadline = pick(d, /截止投標/) || L.deadline;
+    L.open = pick(d, /開標時間/) || L.open;
+    L.budget = amount(pick(d, /預算金額$/)) || L.budget;
+    L.award = amount(pick(d, /總決標金額$/)) || L.award;
+    const w = winners(r); if (w.length) L.winners = w;
+    L.official = d.url || L.official;
+    L.timeline.push({ date: r.date, type: r.brief?.type });
+    const rid = r.date + '/' + r.filename, isNew = !seen.has(rid);
+    if (isNew){ seen.add(rid); t.seen.push(rid); }
+    const link = d.url || tlink(r.unit_id || t.unit_id, r.job_number || t.job_number);
+    if (t.wait_formal && !t.formal_found && isFormal(r.brief?.type)){
+      t.formal_found = rid;
+      const extra = [L.deadline && '截止投標 ' + L.deadline, L.budget && '預算 ' + money(L.budget)].filter(Boolean).join('｜');
+      newEvents.push({ kind: '正式上網', headline: (r.brief?.type || '招標公告') + (extra ? '｜' + extra : ''), title: r.brief?.title || L.title, unit: r.unit_name || unitName, date: r.date, link, u: r.unit_id || t.unit_id, j: r.job_number || t.job_number });
+    } else if (isNew && !firstRun){
+      newEvents.push({ kind: '標案進度', headline: r.brief?.type || '新公告', title: r.brief?.title || L.title, unit: r.unit_name || unitName, date: r.date, amount: amount(pick(d, /總決標金額$/)), link, u: r.unit_id || t.unit_id, j: r.job_number || t.job_number });
+    }
+  }
+  const onlyView = L.timeline.length && L.timeline.every(x => /公開閱覽/.test(x.type || ''));
+  const RD = roundsOf(recs), fr = RD.rounds.filter(x => x.n > 0), fl = RD.rounds.filter(x => x.fail);
+  // 重新上網的招標公告：通知裡註明第幾次、前次流標原因
+  newEvents.slice(evStart).forEach(e => {
+    const R = fr.find(x => String(x.date) === String(e.date)); if (!R || R.n < 2) return;
+    const prev = RD.rounds.filter(x => x.fail && String(x.fail.date) <= String(e.date)).at(-1);
+    e.headline = `第 ${R.n} 次招標・重新上網${prev ? '（前次：' + failShort(prev.fail.reason) + '）' : ''}${R.deadline ? '｜截止 ' + R.deadline : ''}`;
+  });
+  L.round = fr.at(-1)?.n || 0; L.posted = fr.at(-1)?.posted || ''; L.lastFail = fl.at(-1)?.fail?.reason || ''; L.fails = fl.length;
+  L.status = t.wait_formal && !t.formal_found && (onlyView || !L.timeline.length) ? '等待正式上網' : (L.timeline.at(-1)?.type || '查無資料');
+  t.title = t.title || L.title; t.unit = unitName;
+  t.last = L;
+}
+
+let busy = false;
+async function refresh(){
+  if (busy) return; busy = true;
+  const btn = $('#refresh'), bar = $('#bar'), fill = bar.querySelector('i');
+  checkFresh(true);
+  btn.disabled = true; btn.textContent = '更新中…'; bar.style.display = 'block'; fill.style.width = '0';
+  const jobs = [...S.tenders.map(t => ['t', t]), ...S.vendors.map(v => ['v', v])];
+  const newEvents = [], errors = [];
+  let done = 0;
+  for (const [k, x] of jobs){
+    try { k === 't' ? await checkTender(x, newEvents) : await checkVendor(x, newEvents); x.error = ''; }
+    catch(e){ x.error = e.message; errors.push(x); }
+    fill.style.width = (++done / jobs.length * 100) + '%'; btn.textContent = `更新中 ${done}/${jobs.length}`;
+  }
+  const now = new Date();
+  newEvents.forEach(e => { e.found = now.toISOString(); e.fresh = true; });
+  S.events.forEach(e => e.fresh = false);
+  S.events = newEvents.concat(S.events).slice(0, 300);
+  S.unread = newEvents.length;
+  S.lastCheck = now.toISOString();
+  save(); render();
+  btn.disabled = false; btn.textContent = '立即更新'; bar.style.display = 'none'; busy = false;
+  toast(errors.length ? `更新完成，${errors.length} 項查詢失敗` : newEvents.length ? `有 ${newEvents.length} 則新動態` : '沒有新動態');
+  if (S.company?.name && (!S.recs || Date.now() - new Date(S.recs.built) > 6 * 3600000)) runRecs();
+}
+
+// ---------- 畫面 ----------
+function fmtTime(iso){ if (!iso) return ''; const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function render(){
+  $('#updated').textContent = S.lastCheck ? '上次更新 ' + fmtTime(S.lastCheck) : '尚未檢查';
+  const badge = $('#badge'); badge.hidden = !S.unread; badge.textContent = S.unread;
+
+  const tagCls = k => k === '正式上網' ? 'hot' : k === '廠商得標' ? 'ok' : k === '廠商未得標' ? 'no' : k === '標案進度' ? 't-tender' : '';
+  $('#news-n').textContent = S.unread ? `(${S.unread} 新)` : '';
+  $('#evlist').innerHTML = S.events.length ? '<div class="grid">' + S.events.map(e => `
+    <div class="card ${e.fresh ? 'new' : ''}">
+      <div class="row"><span class="tag ${tagCls(e.kind)}">${esc(e.kind)}</span>${e.fresh ? '<span class="m">新</span>' : ''}</div>
+      <div class="m" style="margin-top:4px">${esc(e.headline)}</div>
+      <div class="t" style="margin-top:4px">${e.u ? `<a href="#" class="open" data-u="${esc(e.u)}" data-j="${esc(e.j)}">${esc(e.title)}</a>` : `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`}</div>
+      <div class="m">${esc(e.unit)}｜公告 ${d8(e.date)}${e.amount ? '｜<span class="money">' + money(e.amount) + '</span>' : ''}</div>
+    </div>`).join('') + '</div>'
+    : `<div class="empty">${S.tenders.length || S.vendors.length ? '目前沒有新動態。<br>第一次更新只會建立基準，之後有新公告才會出現在這裡；<br>「正式上網」則是一出現就會通知。' : '還沒有追蹤任何東西。<br>到「搜尋／加入」找標案或廠商。'}</div>`;
+
+  $('#tenders').innerHTML = S.tenders.length ? '<div class="grid">' + S.tenders.map((t, i) => {
+    const L = t.last || {};
+    const status = L.status || (t.wait_formal ? '等待正式上網' : '尚未更新');
+    return `<div class="card">
+      <div class="row"><span class="tag ${t.wait_formal && !t.formal_found ? 'wait' : t.formal_found && !/決標/.test(status) ? 'hot' : typeCls(status)}">${esc(status)}</span>${L.round ? `<span class="tag ${L.round >= 2 ? 'again' : ''}">第 ${L.round} 次招標</span>` : ''}<span class="sp"></span>
+        <button class="b g s" data-del="tenders" data-i="${i}">移除</button></div>
+      <div class="t" style="margin-top:6px"><a href="#" class="open" data-u="${esc(t.unit_id)}" data-j="${esc(t.job_number)}">${esc(t.title || L.title || t.job_number)}</a></div>
+      <div class="m">${esc(t.unit || L.unit)}</div>
+      <div class="m">案號 ${esc(t.job_number)}${L.official ? `｜<a href="${esc(L.official)}" target="_blank" rel="noopener">採購網原始公告 ↗</a>` : ''}</div>
+      ${L.posted || L.deadline ? `<div class="m times">${[L.posted && '公開 ' + esc(L.posted), L.deadline && `截止 ${esc(L.deadline)}${!L.award && countdown(L.deadline) ? `<b class="${/剩 [1-5] 天|明天|今天/.test(countdown(L.deadline)) ? 'soon' : ''}">（${countdown(L.deadline)}）</b>` : ''}`].filter(Boolean).join('｜')}</div>` : ''}
+      ${L.fails ? `<div class="m" style="color:var(--amber)">${L.fails > 1 ? '已流標 ' + L.fails + ' 次，' : ''}前次無法決標原因：${esc(L.lastFail)}</div>` : ''}
+      <div class="m">${[L.budget && '預算 ' + money(L.budget), L.open && '開標 ' + esc(L.open), L.award && '決標 ' + money(L.award), L.winners?.length && '得標：' + L.winners.map(esc).join('、')].filter(Boolean).join('｜')}</div>
+      ${t.error ? `<div class="m" style="color:var(--no)">上次查詢失敗：${esc(t.error)}</div>` : ''}
+      ${L.timeline?.length ? `<div class="tl">${L.timeline.map(x => `<div>${d8(x.date)}　${esc(x.type)}</div>`).join('')}</div>` : ''}
+      <input class="note" data-note="tenders" data-i="${i}" value="${esc(t.note)}" placeholder="備註…">
+    </div>`;
+  }).join('') + '</div>' : '<div class="empty">還沒追蹤任何標案。<br>到「搜尋／加入」用標案名稱找。</div>';
+
+  $('#vendors').innerHTML = S.vendors.length ? '<div class="grid">' + S.vendors.map((v, i) => {
+    const L = v.last;
+    return `<div class="card">
+      <div class="row"><div class="t sp"><a href="#" class="openv" data-id="${esc(v.id)}" data-n="${esc(v.name)}">${esc(v.label || v.name || v.id)}</a></div>${v.id ? `<span class="m">${esc(v.id)}</span>` : ''}<button class="b g s" data-del="vendors" data-i="${i}">移除</button></div>
+      ${v.error ? `<div class="m" style="color:var(--no)">上次查詢失敗：${esc(v.error)}</div>` : ''}
+      ${L ? `<div class="stats">
+        <div class="stat"><b>${L.total ?? '–'}</b><span>相關公告總數</span></div>
+        <div class="stat"><b>${L.won}/${L.awards}</b><span>近期決標中得標</span></div>
+        <div class="stat"><b class="money">${money(L.wonAmount) || '–'}</b><span>近期得標金額</span></div>
+      </div>
+      <details><summary>最近 ${L.recent.length} 筆公告</summary><ul class="list">
+        ${L.recent.map(r => `<li><span class="tag ${r.role === '得標' ? 'ok' : r.role === '未得標' ? 'no' : ''}">${esc(r.role)}</span> ${r.u ? `<a href="#" class="open" data-u="${esc(r.u)}" data-j="${esc(r.j)}">${esc(r.title)}</a>` : `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>`}<div class="m">${d8(r.date)}｜${esc(r.type)}｜${esc(r.unit)}${r.amount ? '｜' + money(r.amount) : ''}</div></li>`).join('')}
+      </ul></details>` : '<div class="m">按「立即更新」載入資料</div>'}
+      <input class="note" data-note="vendors" data-i="${i}" value="${esc(v.note)}" placeholder="備註…">
+    </div>`;
+  }).join('') + '</div>' : '<div class="empty">還沒追蹤任何廠商。<br>到「搜尋／加入」用廠商名稱或統編找。</div>';
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-del]'); if (!b) return;
+  const list = S[b.dataset.del], i = +b.dataset.i, x = list[i];
+  if (b.dataset.sure !== '1'){ b.dataset.sure = '1'; b.textContent = '確定移除？'; setTimeout(() => { b.dataset.sure = ''; b.textContent = '移除'; }, 3000); return; }
+  list.splice(i, 1); save(); render(); toast('已移除 ' + (x.title || x.label || x.name || x.job_number || ''));
+});
+document.addEventListener('change', e => {
+  const n = e.target.closest('input[data-note]'); if (!n) return;
+  S[n.dataset.note][+n.dataset.i].note = n.value; save();
+});
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button, section').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); $('#' + b.dataset.tab).classList.add('on');
+  if (b.dataset.tab === 'events' && S.unread && !$('#evlist').hidden){ S.unread = 0; save(); setTimeout(render, 1500); }
+});
+$('#refresh').onclick = refresh;
+
+// ---------- 搜尋 ----------
+// ---------- 搜尋 ----------
+let MODE = 'unit', UNIT = null, PAGE = 1, LASTQ = null, UNITS = null;
+const placeholders = { unit: '輸入機關名稱，例如：彰化縣政府', title: '例如：彰化 污水管線（空白隔開＝都要有）', name: '例如：某某營造', id: '8 碼統一編號' };
+document.querySelectorAll('#mode button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x === b));
+  MODE = b.dataset.m; $('#q').placeholder = placeholders[MODE]; $('#q').value = ''; UNIT = null;
+  $('#filters').hidden = MODE === 'name' || MODE === 'id';
+  $('#filters').classList.toggle('title-mode', MODE === 'title');
+  $('#sug').hidden = true; renderPresets(); $('#q').focus();
+});
+function roundInfo(type, d){
+  // 列表上的「第幾次招標」：用招標公告上的新增公告傳輸次數
+  d = d || {};
+  if (!isFormal(type)) return null;
+  const n = parseInt(d['招標資料:新增公告傳輸次數'], 10) || (/第二次|以後/.test(d['招標資料:招標狀態'] || '') ? 2 : 1);
+  return { n, again: n >= 2 || /第二次|以後/.test(d['招標資料:招標狀態'] || '') };
+}
+function roundTag(ri){ return ri ? `<span class="tag ${ri.again ? 'again' : ''}">${ri.again ? `第 ${ri.n} 次招標・重新上網` : '第 1 次招標'}</span>` : ''; }
+function timesLine(date, d, type){
+  d = d || {};
+  const dl = d['領投開標:截止投標'], cd = dl ? countdown(dl) : '';
+  const vp = d['標案內容:公開閱覽日期'];
+  return [`公告 ${d8(date)}`, /公開閱覽/.test(type || '') && vp ? `閱覽 ${esc(vp)}` : '', dl ? `截止 ${esc(dl)}${cd ? `<b class="${/剩 [1-5] 天|明天|今天/.test(cd) ? 'soon' : ''}">（${cd}）</b>` : ''}` : ''].filter(Boolean).join('｜');
+}
+function cardFor(r){
+  const type = r.brief?.type || '', view = /公開閱覽/.test(type), title = r.brief?.title || '';
+  const ri = roundInfo(type, r.detail);
+  const money2 = [r.budget_amount && '預算 ' + money(r.budget_amount), r.award_amount && '決標 ' + money(r.award_amount)].filter(Boolean).join('｜');
+  const tracked = S.tenders.some(t => t.unit_id === r.unit_id && t.job_number === r.job_number);
+  return `<div class="card"><div class="row"><span class="tag ${typeCls(type)}">${esc(type)}</span>${roundTag(ri)}</div>
+    <div class="t" style="margin-top:6px"><a href="#" class="open" data-u="${esc(r.unit_id)}" data-j="${esc(r.job_number)}" data-d="${esc(r.date)}">${esc(title)}</a></div>
+    <div class="m">${esc(r.unit_name)}${r.dept_name ? '・' + esc(r.dept_name) : ''}｜${esc(r.job_number)}</div>
+    <div class="m times">${timesLine(r.date, r.detail, type)}</div>
+    ${ri?.again ? '<div class="m" style="color:var(--amber)">之前招標未成功，點標案名稱看流標原因</div>' : ''}
+    ${money2 ? `<div class="m amt" style="margin-top:2px">${money2}</div>` : ''}
+    <div class="row" style="margin-top:8px">
+      ${tracked ? '<span class="m">✓ 已追蹤</span>' : `<button class="b s ${view ? '' : 'g'}" data-at="1" data-u="${esc(r.unit_id)}" data-j="${esc(r.job_number)}" data-t="${esc(title)}" data-un="${esc(r.unit_name)}" ${view ? `data-w="1" data-d="${esc(r.date)}"` : ''}>${view ? '正式上網時通知我' : '追蹤標案'}</button>`}
+    </div></div>`;
+}
+function typeOk(type, want){ return !want || (want === '招標' ? isFormal(type) : type === want); }
+function dateFrom(days){ if (!+days) return ''; const d = new Date(Date.now() - days * 86400000); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; }
+const LIST_COLS = ['領投開標:截止投標', '招標資料:招標狀態', '招標資料:新增公告傳輸次數', '標案內容:公開閱覽日期'];
+const failMsg = e => `<div class="empty">查詢失敗：${esc(e.message)}<br>如果一直失敗，到「備份／同步」填入免費的歐噴 API token 可提高查詢上限。</div>`;
+
+// 機關清單（第一次用時下載，約 1.7MB，之後記在瀏覽器）
+async function loadUnits(){
+  if (UNITS) return UNITS;
+  try { const c = localStorage.getItem('pcc_units_v1'); if (c){ UNITS = JSON.parse(c); return UNITS; } } catch(e){}
+  const all = await api('/api/unit', {});
+  UNITS = Object.entries(all).filter(([k]) => /[.A-Za-z]/.test(k)).map(([id, name]) => [id, name]);
+  try { localStorage.setItem('pcc_units_v1', JSON.stringify(UNITS)); } catch(e){}
+  return UNITS;
+}
+let sugIdx = -1;
+async function suggest(){
+  if (MODE !== 'unit') return;
+  const q = $('#q').value.trim(), box = $('#sug');
+  UNIT = null;
+  if (!q){ box.hidden = true; return; }
+  if (!UNITS){ box.hidden = false; box.innerHTML = '<div class="m">下載機關清單中（第一次約需幾秒）…</div>'; try { await loadUnits(); } catch(e){ box.innerHTML = '<div class="m">機關清單下載失敗，可直接按搜尋（用名稱開頭比對）</div>'; return; } if ($('#q').value.trim() !== q) return; }
+  const words = q.split(/\s+/);
+  const hits = UNITS.filter(([, n]) => words.every(w => n.includes(w)))
+    .sort((a, b) => (a[1].startsWith(q) ? 0 : 1) - (b[1].startsWith(q) ? 0 : 1) || a[1].length - b[1].length).slice(0, 30);
+  sugIdx = -1;
+  box.hidden = !hits.length;
+  box.innerHTML = hits.map(([id, n]) => `<div data-id="${esc(id)}" data-n="${esc(n)}">${esc(n)}<small>${esc(id)}</small></div>`).join('');
+}
+let sugT;
+$('#q').addEventListener('input', () => { clearTimeout(sugT); sugT = setTimeout(suggest, 200); });
+$('#sug').addEventListener('click', e => { const d = e.target.closest('[data-id]'); if (!d) return; pickUnit(d.dataset.id, d.dataset.n); });
+function pickUnit(id, n){ UNIT = { id, name: n }; $('#q').value = n; $('#sug').hidden = true; search(); }
+document.addEventListener('click', e => { if (!e.target.closest('#sug') && e.target.id !== 'q') $('#sug').hidden = true; });
+
+async function search(more){
+  const q = $('#q').value.replace(/["“”]/g, ' ').trim(); if (!q) return;
+  $('#sug').hidden = true;
+  const box = $('#results'), moreBox = $('#more');
+  if (!more){ PAGE = 1; box.innerHTML = '<div class="empty">查詢中…</div>'; $('#unitinfo').innerHTML = ''; } else { PAGE++; moreBox.innerHTML = '<span class="m">載入中…</span>'; }
+  const want = $('#f_type').value, kw = $('#f_kw').value.trim(), from = dateFrom($('#f_days').value);
+  const kwOk = r => !kw || kw.split(/\s+/).every(w => (r.brief?.title || '').includes(w));
+
+  if (MODE === 'unit'){
+    const params = { limit: 100, page: PAGE };
+    if (UNIT) params.unit_id = UNIT.id; else params.unit_name = q;
+    if ($('#f_child').checked) params.include_children = 1;
+    if ($('#f_dept').value.trim()) params.dept_name = $('#f_dept').value.trim();
+    if (want && want !== '招標') params.type = want;
+    if (from) params.date_from = from;
+    params['columns[]'] = LIST_COLS;
+    let ret;
+    try { ret = await api('/api/listbyunit', params); } catch(e){ if (more){ PAGE--; moreBox.innerHTML = `<span class="m">載入失敗：${esc(e.message)}</span>`; } else box.innerHTML = failMsg(e); return; }
+    const recs = (ret.records || []).filter(r => typeOk(r.brief?.type, want) && kwOk(r));
+    if (!more){
+      const units = ret.matched_units || ret.resolved_units || [];
+      box.innerHTML = `<p class="m">${esc(UNIT ? UNIT.name : q)}${units.length > 1 ? `（含 ${units.length} 個機關）` : ''}：符合條件的公告共 ${ret.total ?? recs.length} 筆${kw || want === '招標' ? '，再依名稱／類型篩選' : ''}，依日期新到舊。</p>` + (recs.length ? '<div class="grid">' + recs.map(cardFor).join('') + '</div>' : '<div class="empty">這頁沒有符合的公告</div>');
+      rememberUnit(UNIT?.id || '', UNIT ? UNIT.name : q);
+      const uid = UNIT?.id || units[0]?.unit_id;
+      if (uid) unitStat(uid, units.length > 1 || $('#f_child').checked);
+    } else {
+      const g = box.querySelector('.grid'); if (g) g.insertAdjacentHTML('beforeend', recs.map(cardFor).join('')); else box.insertAdjacentHTML('beforeend', '<div class="grid">' + recs.map(cardFor).join('') + '</div>');
+    }
+    const totalPage = ret.total_page || 1;
+    moreBox.innerHTML = PAGE < totalPage ? `<button class="b g" id="loadmore">載入更多（第 ${PAGE + 1} / ${totalPage} 頁）</button>` : '';
+    return;
+  }
+
+  // 標案名稱 / 廠商 / 統編
+  const path = { name: 'searchbycompanyname', id: 'searchbycompanyid', title: 'searchbytitle' }[MODE];
+  let ret;
+  try { ret = await api('/api/' + path, { query: q, page: PAGE, ...(MODE === 'title' ? { 'columns[]': LIST_COLS } : {}) }); } catch(e){ if (more){ PAGE--; moreBox.innerHTML = `<span class="m">載入失敗：${esc(e.message)}</span>`; } else box.innerHTML = failMsg(e); return; }
+  let recs = ret.records || [];
+  if (MODE === 'title') recs = recs.filter(r => typeOk(r.brief?.type, want) && kwOk(r) && (!from || String(r.date) >= from));
+  let html = '';
+  if (!more){
+    html += `<p class="m">共 ${ret.total_records} 筆${MODE === 'title' && (want || kw || from) ? '，已依類型／期間／名稱篩選' : ''}，依日期新到舊。</p>`;
+    if (MODE !== 'title'){
+      const cos = new Map();
+      recs.forEach(r => companies(r.brief?.companies || {}).forEach(({ id, name, keys }) => {
+        if (MODE === 'id' ? id !== q : !name.includes(q)) return;
+        const k = id || name, o = cos.get(k) || { id, name, count: 0, won: 0 };
+        o.count++; if (keys.some(x => WIN.test(x))) o.won++; cos.set(k, o);
+      }));
+      html += [...cos.values()].sort((a, b) => b.count - a.count).map(c => `
+        <div class="card"><div class="row"><div class="sp"><div class="t">${esc(c.name)}</div><div class="m">${c.id ? '統編 ' + esc(c.id) + '｜' : ''}這批結果出現 ${c.count} 次、得標 ${c.won} 次</div></div>
+        <button class="b g s openv" data-id="${esc(c.id)}" data-n="${esc(c.name)}">歷次紀錄</button><button class="b s" data-av="${esc(c.id)}" data-n="${esc(c.name)}">追蹤廠商</button></div></div>`).join('');
+    }
+  }
+  const seenK = new Set(more ? [...box.querySelectorAll('a.open')].map(a => a.dataset.u + '|' + a.dataset.j) : []);
+  const cards = recs.filter(r => { const k = r.unit_id + '|' + r.job_number; if (seenK.has(k)) return false; seenK.add(k); return true; }).map(cardFor).join('');
+  if (!more) box.innerHTML = html + (cards ? '<div class="grid">' + cards + '</div>' : '<div class="empty">這頁沒有符合的結果</div>');
+  else box.querySelector('.grid')?.insertAdjacentHTML('beforeend', cards);
+  moreBox.innerHTML = PAGE < (ret.total_pages || 1) ? `<button class="b g" id="loadmore">載入更多（第 ${PAGE + 1} / ${ret.total_pages} 頁）</button>` : '';
+}
+$('#more').addEventListener('click', e => { if (e.target.id === 'loadmore') search(true); });
+
+// ---------- 常見機關 ----------
+const PRESETS = [
+  ['中央機關・國營事業', [['3.13', '經濟部'], ['3.13.50', '台灣中油股份有限公司'], ['3.13.52', '台灣自來水股份有限公司'], ['3.5', '國防部']]],
+  ['管線・道路・水利', [['3.13.52.11', '台灣自來水股份有限公司第十一區管理處'], ['A.1.2.5', '內政部國土管理署下水道工程分署'], ['3.13.31.13', '台灣電力股份有限公司彰化區營業處'], ['A.15.3.2', '交通部公路局中區養護工程分局'], ['A.13.6.14', '經濟部水利署第四河川分署'], ['A.13.6.2', '經濟部水利署中區水資源分署']]],
+  ['鄰近縣市', [['', '臺中市政府'], ['3.76.48', '南投縣政府'], ['3.76.49', '雲林縣政府']]],
+];
+const shortName = n => n === '台灣自來水股份有限公司' ? '自來水公司' : n.replace(/^台灣自來水股份有限公司/, '自來水').replace(/^台灣電力股份有限公司/, '台電').replace(/^內政部國土管理署/, '國土署').replace(/^經濟部水利署/, '水利署').replace(/^交通部公路局/, '公路局').replace(/^彰化縣(?=.+(公所|局)$)/, '').replace(/^台灣自來水$/, '自來水公司').replace(/^台灣中油股份有限公司$/, '中油公司').replace(/股份有限公司/, '');
+function renderPresets(){
+  const box = $('#presets');
+  if (MODE !== 'unit'){ box.innerHTML = ''; return; }
+  const cur = UNIT?.id || '';
+  const chip = ([id, n]) => `<button data-pid="${esc(id)}" data-pn="${esc(n)}" class="${id && id === cur ? 'cur' : ''}" title="${esc(n)}">${esc(shortName(n))}</button>`;
+  const recent = (S.recentUnits || []).slice(0, 8);
+  box.className = 'presets';
+  box.innerHTML = (recent.length ? `<div class="g">最近查過 <button data-clear>清除</button></div><div class="chips">${recent.map(u => chip([u.id, u.name])).join('')}</div>` : '')
+    + `<details ${$('#results').innerHTML.trim() ? '' : 'open'}><summary class="g" style="cursor:pointer">常見機關</summary>`
+    + PRESETS.map(([g, list]) => `<div class="g">${g}</div><div class="chips">${list.map(chip).join('')}</div>`).join('') + '</details>';
+}
+$('#presets').addEventListener('click', e => {
+  if (e.target.closest('[data-clear]')){ S.recentUnits = []; save(); renderPresets(); return; }
+  const b = e.target.closest('[data-pn]'); if (!b) return;
+  if (b.dataset.pid) pickUnit(b.dataset.pid, b.dataset.pn);
+  else { UNIT = null; $('#q').value = b.dataset.pn; search(); }
+});
+function rememberUnit(id, name){
+  S.recentUnits = [{ id: id || '', name }, ...(S.recentUnits || []).filter(u => u.name !== name)].slice(0, 8);
+  save(); renderPresets();
+}
+renderPresets();
+
+// 機關概況：每年標案數、決標金額、得標廠商排行、單位
+async function unitStat(uid, children){
+  const box = $('#unitinfo');
+  box.innerHTML = '<div class="card m">讀取機關概況…</div>';
+  const y = new Date().getFullYear() - 1;
+  let st;
+  try { st = await api('/api/unitstat', { unit_id: uid, date_from: `${y}0101`, top: 10, ...(children ? { include_children: 1 } : {}) }); }
+  catch(e){ box.innerHTML = ''; return; }
+  const years = (st.years || []).slice(-2);
+  box.innerHTML = `<div class="card">
+    <div class="row"><div class="t sp">${esc(st.unit_name || '')} 概況（${y} 年起）</div></div>
+    <div class="stats s4">${years.map(x => `<div class="stat"><b>${x.tenders}</b><span>${x.year} 年標案數</span></div><div class="stat"><b class="money">${money(x.award_amount)}</b><span>${x.year} 年決標金額</span></div>`).join('')}</div>
+    ${(st.dept_names || []).filter(d => d.dept_name).length ? `<div class="m" style="margin-top:8px">點單位只看該單位的標案：</div><div class="chips">${st.dept_names.filter(d => d.dept_name).slice(0, 16).map(d => `<button data-dept="${esc(d.dept_name)}">${esc(d.dept_name)} <small class="m">${d.tenders}</small></button>`).join('')}</div>` : ''}
+    ${(st.winners || []).length ? `<details style="margin-top:6px"><summary>得標廠商排行（依金額）</summary><ul class="list">${st.winners.map((w, i) => `<li class="row"><span class="sp">${i + 1}. <a href="#" class="openv" data-id="${esc(w.company_id || '')}" data-n="${esc(w.company_name)}">${esc(w.company_name)}</a> <span class="m">${w.awards} 件｜${money(w.amount)}</span></span>${S.vendors.some(v => v.id === w.company_id) ? '<span class="m">✓ 已追蹤</span>' : `<button class="b g s" data-av="${esc(w.company_id || '')}" data-n="${esc(w.company_name)}">追蹤</button>`}</li>`).join('')}</ul></details>` : ''}
+  </div>`;
+}
+$('#unitinfo').addEventListener('click', e => {
+  const c = e.target.closest('[data-dept]');
+  if (c){ $('#f_dept').value = c.dataset.dept; search(); return; }
+  const b = e.target.closest('button[data-av]'); if (!b) return;
+  const d = b.dataset;
+  if (!S.vendors.some(v => (d.av && v.id === d.av) || (!d.av && v.name === d.n))) S.vendors.unshift({ id: d.av || '', name: d.n, note: '' });
+  b.replaceWith(Object.assign(document.createElement('span'), { className: 'm', textContent: '✓ 已追蹤' })); save(); render(); toast('已加入追蹤廠商');
+});
+$('#go').onclick = () => search();
+$('#q').onkeydown = e => {
+  const items = [...$('#sug').querySelectorAll('[data-id]')];
+  if (!$('#sug').hidden && items.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')){
+    e.preventDefault(); sugIdx = (sugIdx + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items.forEach((x, i) => x.classList.toggle('on', i === sugIdx)); items[sugIdx].scrollIntoView({ block: 'nearest' }); return;
+  }
+  if (e.key === 'Enter'){ if (!$('#sug').hidden && sugIdx >= 0 && items[sugIdx]) pickUnit(items[sugIdx].dataset.id, items[sugIdx].dataset.n); else search(); }
+};
+['#f_type', '#f_days', '#f_child'].forEach(sel => $(sel).addEventListener('change', () => { if ($('#q').value.trim()) search(); }));
+$('#results').onclick = e => {
+  const b = e.target.closest('button'); if (!b || b.classList.contains('openv')) return;
+  if (b.dataset.at){
+    const d = b.dataset;
+    if (S.tenders.some(t => t.unit_id === d.u && t.job_number === d.j)) return toast('已經在追蹤了');
+    const t = { unit_id: d.u, job_number: d.j, title: d.t, unit: d.un, note: '' };
+    if (d.w){ t.wait_formal = true; t.since = d.d; }
+    S.tenders.unshift(t);
+    toast(d.w ? '已加入，正式上網時會通知' : '已加入追蹤');
+  } else {
+    const d = b.dataset;
+    if (S.vendors.some(v => (d.av && v.id === d.av) || (!d.av && v.name === d.n))) return toast('已經在追蹤了');
+    S.vendors.unshift({ id: d.av || '', name: d.n, note: '' });
+    toast('已加入追蹤廠商');
+  }
+  b.disabled = true; b.textContent = '已加入'; save(); render();
+};
+
+// ---------- 備份 ----------
+const exportData = () => JSON.stringify({ app: 'pcc-tracker', v: 1, company: S.company, companies: S.companies, vendors: S.vendors.map(({ id, name, label, note }) => ({ id, name, label, note })),
+  tenders: S.tenders.map(({ unit_id, job_number, title, unit, note, wait_formal, since, formal_found }) => ({ unit_id, job_number, title, unit, note, wait_formal, since, formal_found })) });
+$('#exp').onclick = async () => { const s = exportData(); $('#io').value = s; try { await navigator.clipboard.writeText(s); toast('已複製，貼到另一台裝置'); } catch(e){ $('#io').select(); toast('請手動複製下面的文字'); } };
+$('#dl').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([exportData()], { type: 'application/json' })); a.download = `標案追蹤備份-${new Date().toISOString().slice(0,10)}.json`; a.click(); };
+$('#file').onchange = async e => { const f = e.target.files[0]; if (f){ $('#io').value = await f.text(); toast('已讀入，按「匯入」或「合併」'); } };
+function readIO(){ try { const d = JSON.parse($('#io').value); if (!Array.isArray(d.vendors) || !Array.isArray(d.tenders)) throw 0; return d; } catch(e){ toast('格式不對，請貼上完整的備份內容'); return null; } }
+$('#imp').onclick = () => { const d = readIO(); if (!d) return; S.vendors = d.vendors; S.tenders = d.tenders; if (d.company?.name){ useCompany(d.company); (d.companies || []).forEach(c => { if (!(S.companies || []).some(x => coKey(x) === coKey(c))) S.companies.push(c); }); renderCompany(); } S.events = []; S.unread = 0; save(); render(); toast('已匯入，按「立即更新」載入資料'); };
+$('#merge').onclick = () => { const d = readIO(); if (!d) return;
+  let n = 0;
+  d.vendors.forEach(v => { if (!S.vendors.some(x => (v.id && x.id === v.id) || (!v.id && x.name === v.name))){ S.vendors.push(v); n++; } });
+  d.tenders.forEach(t => { if (!S.tenders.some(x => x.unit_id === t.unit_id && x.job_number === t.job_number)){ S.tenders.push(t); n++; } });
+  save(); render(); toast(`合併了 ${n} 項`); };
+$('#tok').value = S.token || '';
+$('#savetok').onclick = () => { S.token = $('#tok').value.trim(); save(); toast('已儲存'); };
+
+
+// ---------- 標案詳細資料 ----------
+const tenderCache = new Map();
+function rocToDate(s){ const m = String(s || '').match(/(\d{2,3})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/); if (!m) return null; return new Date(+m[1] + 1911, m[2] - 1, +m[3], +(m[4] || 23), +(m[5] || 59)); }
+function countdown(s){
+  const d = rocToDate(s); if (!d) return '';
+  const days = Math.ceil((d - Date.now()) / 86400000);
+  return days > 1 ? `剩 ${days} 天` : days === 1 ? '明天截止' : days === 0 ? '今天截止' : '已截止';
+}
+function tenderSummary(recs){
+  // 同一欄位以最新公告為準；欄位名稱看最後一段（例如「採購資料:預算金額」「已公告資料:預算金額」都算預算）
+  const all = recs.map(r => ({ type: r.brief?.type || '', date: r.date, d: (r.detail && typeof r.detail === 'object') ? r.detail : {} }));
+  const g = (re, filter) => { for (let i = all.length - 1; i >= 0; i--){ if (filter && !filter(all[i].type)) continue; for (const [k, v] of Object.entries(all[i].d)) if (typeof v === 'string' && v.trim() && !k.startsWith('英文公告') && re.test(k)) return v.trim(); } return ''; };
+  const last = all.at(-1) || { type: '', d: {} };
+  const awardRec = [...all].reverse().find(x => /決標公告/.test(x.type) && !/無法/.test(x.type));
+  const bidders = [];
+  if (awardRec){
+    const n = {};
+    for (const [k, v] of Object.entries(awardRec.d)){
+      const m = k.match(/^投標廠商:投標廠商(\d+):(.+)$/); if (!m) continue;
+      (n[m[1]] ||= {})[m[2]] = v;
+    }
+    Object.keys(n).sort((a, b) => a - b).forEach(i => bidders.push(n[i]));
+  }
+  const budget = amount(g(/:預算金額$/));
+  const award = amount(g(/:總決標金額$/));
+  const base = amount(g(/:底價金額$/));
+  return {
+    title: g(/:標案名稱$/) || recs.at(-1)?.brief?.title,
+    status: last.type, official: last.d.url, unit: g(/:機關名稱$/), dept: g(/:單位名稱$/), job: g(/:標案案號$/),
+    category: g(/:標的分類$/), method: g(/:招標方式$/), award_method: g(/:決標方式$/), level: g(/:採購金額級距$/),
+    round: g(/:招標狀態$/), floor: g(/:是否訂有底價$/), extend: g(/:後續擴充$/),
+    budget, award, base,
+    deadline: g(/:截止投標$/), open_time: g(/:開標時間$/), open_place: g(/:開標地點$/), submit_place: g(/:收受投標文件地點$/),
+    place: g(/:履約地點（含地區）$/) || g(/:履約地點$/), period: g(/:履約期限$/) || bidders.find(b => b['是否得標'] === '是')?.['履約起迄日期'] || '',
+    price_adj: g(/:契約是否訂有依物價指數調整價金規定$/),
+    summary: g(/:內容摘要$/) || g(/^其他:附加說明$/), qualify: g(/:廠商資格摘要$/),
+    e_doc: g(/:是否提供電子領標$/), doc_fee: g(/:是否提供電子領標:總計$/), notice_url: g(/投標須知下載$/), e_bid: g(/:是否提供電子投標$/),
+    deposit: g(/押標金額度$/) || g(/:是否須繳納押標金$/),
+    contact: g(/:聯絡人$/), phone: g(/:聯絡電話$/), email: g(/:電子郵件信箱$/), address: g(/:機關地址$/),
+    view_date: g(/:公開閱覽日期$/), opinion_due: g(/:民眾意見之送達期限$/),
+    award_date: g(/:決標日期$/), bidder_count: g(/:投標廠商家數$/), bidders,
+    timeline: all.map(x => ({ date: x.date, type: x.type, url: x.d.url })),
+  };
+}
+function row(label, v, html){ return v ? `<dt>${label}</dt><dd>${html ? v : esc(v)}</dd>` : ''; }
+function longText(v){ return v ? `<div class="long">${esc(v)}</div><button class="more" data-more>展開全文</button>` : ''; }
+let SHEET_TOK = 0, NAV = [];
+function sheetOpen(kind, args, fresh){
+  if (fresh) NAV = [];
+  NAV.push([kind, args]);
+  $('#sh-back').hidden = NAV.length < 2;
+  $('#sh-body').parentElement.scrollTop = 0;
+  return kind === 'v' ? openVendor(...args) : openTender(...args);
+}
+$('#sh-back').onclick = () => { NAV.pop(); const [k, a] = NAV.pop(); sheetOpen(k, a); };
+async function openTender(u, j, date){
+  const sheet = $('#sheet'), body = $('#sh-body'), tok = ++SHEET_TOK;
+  $('#sh-title').textContent = '標案資料'; body.innerHTML = '<div class="empty">讀取中…</div>';
+  sheet.classList.add('on'); document.body.style.overflow = 'hidden';
+  let recs = tenderCache.get(u + '|' + j);
+  if (!recs){
+    try { recs = (await api('/api/tender', { unit_id: u, job_number: j })).records || []; tenderCache.set(u + '|' + j, recs); }
+    catch(e){ body.innerHTML = `<div class="empty">讀取失敗：${esc(e.message)}<br><a href="${tlink(u, j)}" target="_blank" rel="noopener">改用 g0v 檢視頁 ↗</a></div>`; return; }
+  }
+  if (tok !== SHEET_TOK) return;
+  if (!recs.length){ body.innerHTML = '<div class="empty">查無公告資料</div>'; return; }
+  recs.sort((a, b) => (String(a.date) + a.filename).localeCompare(String(b.date) + b.filename));
+  const T = tenderSummary(recs);
+  const RD = roundsOf(recs), formalRounds = RD.rounds.filter(x => x.n > 0), curRound = formalRounds.at(-1), fails = RD.rounds.filter(x => x.fail);
+  $('#sh-title').textContent = T.title || j;
+  const tracked = S.tenders.find(t => t.unit_id === u && t.job_number === j);
+  const isView = recs.every(r => /公開閱覽/.test(r.brief?.type || ''));
+  const cd = T.deadline && !T.award ? countdown(T.deadline) : '';
+  const rate = T.award && T.budget ? (T.award / T.budget * 100).toFixed(1) + '%' : '';
+  const winners = T.bidders.filter(b => b['是否得標'] === '是').map(b => b['廠商名稱']);
+  const kpis = [
+    ['預算金額', T.budget ? money(T.budget) + `<br><small class="m">${T.budget.toLocaleString()} 元</small>` : '未公開'],
+    T.award ? ['決標金額', money(T.award) + `<br><small class="m">${T.award.toLocaleString()} 元</small>`, 'hl'] : ['截止投標', T.deadline ? T.deadline + (cd ? `<br><small>${cd}</small>` : '') : (isView ? '尚未招標' : '—'), cd && cd !== '已截止' ? 'hl' : ''],
+    T.award ? ['決標／預算', rate || '—'] : ['開標時間', T.open_time || '—'],
+    T.award ? ['得標廠商', winners.map(esc).join('<br>') || '—'] : (curRound ? ['招標次數', `第 ${curRound.n} 次${fails.length ? `<br><small class="m">前次：${esc(failShort(fails.at(-1).fail.reason))}</small>` : ''}`, curRound.n >= 2 ? 'hl' : ''] : ['招標方式', esc(T.method || '—')]),
+  ];
+  body.innerHTML = `
+    <div class="row" style="margin:0 0 10px">
+      <span class="tag ${typeCls(T.status)}">${esc(T.status)}</span>
+      ${curRound ? `<span class="tag ${curRound.n >= 2 ? 'again' : ''}">第 ${curRound.n} 次招標</span>` : ''}
+      <span class="sp"></span>
+      ${T.official ? `<a class="m" href="${esc(T.official)}" target="_blank" rel="noopener">採購網原始公告 ↗</a>` : ''}
+    </div>
+    <div class="m" style="margin:-4px 0 10px">${esc(T.unit)}${T.dept && T.dept !== T.unit ? '・' + esc(T.dept.replace(T.unit, '')) : ''}</div>
+    <div class="kpi">${kpis.map(([l, v, c]) => `<div class="${c || ''}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
+    ${curRound ? `<p class="m" style="margin:8px 0 0">本次公開 ${esc(curRound.posted || d8(curRound.date))}｜截止投標 ${esc(curRound.deadline || '—')}${curRound.open ? '｜開標 ' + esc(curRound.open) : ''}</p>` : RD.view ? `<p class="m" style="margin:8px 0 0">公開閱覽 ${esc(RD.view.period || d8(RD.view.date))}，尚未正式招標</p>` : ''}
+    <div class="row" style="margin:12px 0">
+      ${tracked ? '<span class="m">✓ 已在追蹤清單</span>' : `<button class="b s" id="sh-track" data-u="${esc(u)}" data-j="${esc(j)}" data-t="${esc(T.title)}" data-un="${esc(T.unit)}" ${isView ? `data-w="1" data-d="${esc(date || recs[0].date)}"` : ''}>${isView ? '正式上網時通知我' : '加入追蹤'}</button>`}
+    </div>
+    ${formalRounds.length || RD.view ? `<div class="card"><div class="sec">招標歷程</div>
+      ${fails.length ? `<p style="margin:0 0 8px;color:var(--amber);font-size:14px">已${fails.length > 1 ? '連續 ' + fails.length + ' 次' : ''}無法決標，最近一次原因：<b>${esc(failShort(fails.at(-1).fail.reason))}</b></p>` : ''}
+      <ul class="rounds">
+        ${RD.view ? `<li><span class="tag t-view">公開閱覽</span> <span class="m">公告 ${d8(RD.view.date)}${RD.view.period ? '｜閱覽期間 ' + esc(RD.view.period) : ''}</span></li>` : ''}
+        ${RD.rounds.map(x => x.n ? `<li>
+          <div class="row"><b>第 ${x.n} 次招標</b>${x.url ? `<a class="m" href="${esc(x.url)}" target="_blank" rel="noopener">公告 ↗</a>` : ''}${x.corrected ? `<span class="m">更正 ${x.corrected} 次</span>` : ''}</div>
+          <div class="m">公開 ${esc(x.posted || d8(x.date))}｜截止 ${esc(x.deadline || '—')}${x.open ? '｜開標 ' + esc(x.open) : ''}</div>
+          <div class="m">${x.fail ? `<span class="fail">✕ ${d8(x.fail.date)} 無法決標：${esc(x.fail.reason)}</span>` : x.award ? `<span style="color:var(--ok)">✓ ${d8(x.award.date)} 決標</span>` : (x.deadline && countdown(x.deadline) !== '已截止' ? `<b style="color:#c2410c">招標中（${countdown(x.deadline)}）</b>` : '等待開標／決標結果')}</div>
+        </li>` : `<li><span class="fail m">✕ ${d8(x.fail.date)} 無法決標：${esc(x.fail.reason)}</span></li>`).join('')}
+      </ul></div>` : ''}
+    ${T.bidders.length ? `<div class="card"><div class="sec">決標結果</div>
+      <dl class="info">${row('決標日期', T.award_date)}${row('決標方式', T.award_method)}${row('底價', T.base ? money(T.base) : '')}${row('投標家數', T.bidder_count)}</dl>
+      <table class="bid" style="margin-top:8px"><tr><th>投標廠商</th><th>結果</th><th>決標金額</th></tr>
+      ${T.bidders.map(b => `<tr><td><a href="#" class="openv" data-id="${esc(b['廠商代碼'] || '')}" data-n="${esc(b['廠商名稱'])}">${esc(b['廠商名稱'])}</a><div class="m">${esc(b['廠商代碼'] || '')}</div></td><td><span class="tag ${b['是否得標'] === '是' ? 'ok' : 'no'}">${b['是否得標'] === '是' ? '得標' : '未得標'}</span></td><td class="money">${esc(b['決標金額'] || '')}</td></tr>`).join('')}
+      </table></div>` : ''}
+    <div class="card"><div class="sec">基本資料</div><dl class="info">
+      ${row('機關', T.unit)}${row('承辦單位', T.dept)}${row('標案案號', T.job || j)}${row('標的分類', T.category)}
+      ${row('招標方式', T.method)}${row('招標狀態', T.round)}${row('決標方式', T.award_method)}${row('金額級距', T.level)}
+      ${row('訂有底價', T.floor)}${row('後續擴充', T.extend)}
+      ${row('公開閱覽', T.view_date)}${row('意見送達期限', T.opinion_due)}
+    </dl></div>
+    <div class="card"><div class="sec">履約內容</div><dl class="info">
+      ${row('履約地點', T.place)}${row('履約期限', T.period)}${row('物價調整', T.price_adj)}
+      ${row('工程概要', longText(T.summary), true)}${row('廠商資格', longText(T.qualify), true)}
+    </dl></div>
+    ${T.deadline || T.e_doc || T.deposit ? `<div class="card"><div class="sec">領標與投標</div><dl class="info">
+      ${row('截止投標', T.deadline ? T.deadline + (cd ? `（${cd}）` : '') : '')}${row('開標時間', T.open_time)}${row('開標地點', T.open_place)}
+      ${row('投標文件送達', T.submit_place)}${row('電子領標', T.e_doc)}${row('領標費用', T.doc_fee)}${row('電子投標', T.e_bid)}${row('押標金', T.deposit)}
+      ${row('投標須知', T.notice_url ? `<a href="${esc(T.notice_url)}" target="_blank" rel="noopener">下載 ↗</a>` : '', true)}
+    </dl></div>` : ''}
+    <div class="card"><div class="sec">聯絡窗口</div><dl class="info">
+      ${row('聯絡人', T.contact)}${row('電話', T.phone ? `<a href="tel:${esc(T.phone.replace(/[^\d#+]/g, ''))}">${esc(T.phone)}</a>` : '', true)}
+      ${row('電子郵件', T.email)}${row('機關地址', T.address)}
+    </dl></div>
+    <div class="card"><div class="sec">公告歷程</div><div class="tl" style="margin-top:0">
+      ${T.timeline.map(x => `<div>${d8(x.date)}　${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.type)} ↗</a>` : esc(x.type)}</div>`).join('')}
+    </div></div>
+    <p class="m" style="text-align:center">資料來源：g0v pcc-api，以政府電子採購網公告為準</p>`;
+}
+function closeSheet(){ $('#sheet').classList.remove('on'); document.body.style.overflow = ''; NAV = []; SHEET_TOK++; }
+$('#sh-x').onclick = closeSheet;
+$('#sheet').addEventListener('click', e => {
+  if (e.target.id === 'sheet') return closeSheet();
+  const m = e.target.closest('[data-more]'); if (m){ const l = m.previousElementSibling; l.classList.toggle('open'); m.textContent = l.classList.contains('open') ? '收起' : '展開全文'; return; }
+  const b = e.target.closest('#sh-track'); if (!b) return;
+  const d = b.dataset;
+  const t = { unit_id: d.u, job_number: d.j, title: d.t, unit: d.un, note: '' };
+  if (d.w){ t.wait_formal = true; t.since = d.d; }
+  if (!S.tenders.some(x => x.unit_id === d.u && x.job_number === d.j)) S.tenders.unshift(t);
+  save(); render(); b.replaceWith(Object.assign(document.createElement('span'), { className: 'm', textContent: '✓ 已加入追蹤' }));
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('click', e => {
+  const a = e.target.closest('a.open'); if (!a) return;
+  e.preventDefault(); sheetOpen('t', [a.dataset.u, a.dataset.j, a.dataset.d], !e.target.closest('#sheet'));
+});
+document.addEventListener('click', e => {
+  const a = e.target.closest('.openv'); if (!a) return;
+  e.preventDefault(); sheetOpen('v', [a.dataset.id || '', a.dataset.n || ''], !e.target.closest('#sheet'));
+});
+
+// ---------- 廠商歷次投標／得標紀錄 ----------
+const vendorCache = new Map();
+const BID_COLS = ['/^投標廠商:投標廠商\\d+:(廠商代碼|廠商名稱|決標金額|是否得標)$/', '已公告資料:預算金額', '決標資料:總決標金額', '決標資料:決標日期'];
+let VF = { role: '', year: '', kw: '' };
+async function loadVendorHistory(id, name, onProgress, maxPages = 10){
+  if (!name && id){
+    const r = await api('/api/searchbycompanyid', { query: id });
+    for (const x of r.records || []){ const c = companies(x.brief?.companies || {}).find(o => o.id === id); if (c){ name = c.name; break; } }
+    if (!name) throw new Error('找不到這個統編的資料');
+  }
+  const recs = []; let page = 1, total = 1, totalRecords = 0;
+  do {
+    onProgress?.(page, total);
+    const r = await api('/api/searchbycompanyname', { query: name, page, 'columns[]': BID_COLS });
+    total = r.total_pages || 1; totalRecords = r.total_records || 0;
+    recs.push(...(r.records || []));
+    page++;
+  } while (page <= total && page <= maxPages);
+  // 每個標案只留最新一筆（更正決標公告會取代原本的）
+  const byTender = new Map();
+  for (const r of recs){
+    const c = r.brief?.companies || {};
+    const exact = (c.names || []).includes(name) || (id && (c.ids || []).includes(id));
+    if (!exact) continue;
+    const d = r.detail || {};
+    const bidders = {};
+    for (const [k, v] of Object.entries(d)){ const m = k.match(/^投標廠商:投標廠商(\d+):(.+)$/); if (m) (bidders[m[1]] ||= {})[m[2]] = v; }
+    const list = Object.values(bidders);
+    const me = list.find(b => (id && b['廠商代碼'] === id) || b['廠商名稱'] === name);
+    const role = me ? (me['是否得標'] === '是' ? '得標' : '未得標') : roleOf(r, { id, name });
+    const key = r.unit_id + '|' + r.job_number, prev = byTender.get(key);
+    if (prev && String(prev.date) >= String(r.date)) continue;
+    byTender.set(key, {
+      date: r.date, type: r.brief?.type, title: r.brief?.title, unit: r.unit_name, u: r.unit_id, j: r.job_number,
+      role, amount: me && me['是否得標'] === '是' ? amount(me['決標金額']) || (list.length === 1 ? amount(d['決標資料:總決標金額']) : null) : null,
+      budget: amount(d['已公告資料:預算金額']), total: amount(d['決標資料:總決標金額']), award_date: d['決標資料:決標日期'] || '',
+      others: list.filter(b => b !== me).map(b => ({ id: b['廠商代碼'] || '', name: b['廠商名稱'], won: b['是否得標'] === '是' })),
+    });
+  }
+  const items = [...byTender.values()].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return { id, name, items, totalRecords, partial: total > maxPages, pagesLoaded: Math.min(total, maxPages), totalPages: total };
+}
+function vendorStats(items){
+  const bids = items.filter(x => x.role !== '相關'), won = bids.filter(x => x.role === '得標');
+  const years = {}, units = {}, rivals = {};
+  for (const x of bids){
+    const y = String(x.date).slice(0, 4), Y = years[y] ||= { y, bids: 0, won: 0, amount: 0 };
+    Y.bids++; if (x.role === '得標'){ Y.won++; Y.amount += x.amount || 0; }
+    const U = units[x.unit] ||= { name: x.unit, bids: 0, won: 0, amount: 0 };
+    U.bids++; if (x.role === '得標'){ U.won++; U.amount += x.amount || 0; }
+    for (const o of x.others){ const k = o.id || o.name, R = rivals[k] ||= { id: o.id, name: o.name, meet: 0, theyWon: 0, iWon: 0 }; R.meet++; if (o.won) R.theyWon++; if (x.role === '得標') R.iWon++; }
+  }
+  return {
+    bids: bids.length, won: won.length, amount: won.reduce((a, x) => a + (x.amount || 0), 0),
+    rate: bids.length ? Math.round(won.length / bids.length * 100) : 0,
+    avgRatio: (() => { const r = won.filter(x => x.amount && x.budget).map(x => x.amount / x.budget); return r.length ? (r.reduce((a, b) => a + b, 0) / r.length * 100).toFixed(1) + '%' : '—'; })(),
+    years: Object.values(years).sort((a, b) => b.y - a.y),
+    units: Object.values(units).sort((a, b) => b.bids - a.bids).slice(0, 8),
+    rivals: Object.values(rivals).sort((a, b) => b.meet - a.meet).slice(0, 10),
+  };
+}
+async function openVendor(id, name){
+  const body = $('#sh-body'), tok = ++SHEET_TOK;
+  $('#sheet').classList.add('on'); document.body.style.overflow = 'hidden';
+  $('#sh-title').textContent = name || id || '廠商紀錄';
+  const key = id || name;
+  let H = vendorCache.get(key);
+  if (!H){
+    body.innerHTML = '<div class="empty" id="vprog">讀取歷次紀錄中…</div>';
+    try { H = await loadVendorHistory(id, name, (p, t) => { const el = document.getElementById('vprog'); if (el && tok === SHEET_TOK) el.textContent = `讀取歷次紀錄中…（第 ${p}${t > 1 ? ' / ' + Math.min(t, 10) : ''} 頁，每頁約 3 秒）`; }); vendorCache.set(key, H); }
+    catch(e){ if (tok === SHEET_TOK) body.innerHTML = `<div class="empty">讀取失敗：${esc(e.message)}</div>`; return; }
+  }
+  if (tok !== SHEET_TOK) return;
+  VF = { role: '', year: '', kw: '' };
+  renderVendor(H);
+}
+function renderVendor(H){
+  const body = $('#sh-body'), st = vendorStats(H.items);
+  $('#sh-title').textContent = H.name;
+  const tracked = S.vendors.some(v => (H.id && v.id === H.id) || v.name === H.name);
+  const list = H.items.filter(x => x.role !== '相關' && (!VF.role || x.role === VF.role) && (!VF.year || String(x.date).startsWith(VF.year)) && (!VF.kw || (x.title + x.unit).includes(VF.kw)));
+  body.innerHTML = `
+    <div class="row" style="margin:0 0 10px"><span class="m sp">${H.id ? '統編 ' + esc(H.id) : ''}</span>
+      ${tracked ? '<span class="m">✓ 已追蹤</span>' : `<button class="b s" id="v-track">追蹤這家廠商</button>`}</div>
+    <div class="kpi">
+      <div><b>${st.bids}</b><span>投標件數</span></div>
+      <div class="hl"><b>${st.won}<small class="m">（${st.rate}%）</small></b><span>得標件數（得標率）</span></div>
+      <div><b>${money(st.amount) || '—'}</b><span>得標總金額</span></div>
+      <div><b>${st.avgRatio}</b><span>平均決標／預算</span></div>
+    </div>
+    ${H.partial ? `<p class="m">資料很多，先讀最近 ${H.pagesLoaded * 100} 筆公告（共 ${H.totalRecords} 筆）。</p>` : `<p class="m">共 ${H.totalRecords} 筆決標相關公告，整理成 ${st.bids} 個標案。</p>`}
+    <div class="card"><div class="sec">每年紀錄</div>
+      <table class="bid"><tr><th>年度</th><th>投標</th><th>得標</th><th>得標金額</th></tr>
+      ${st.years.map((y, i) => `<tr class="${i >= 8 ? 'old-year' : ''}" ${i >= 8 ? 'hidden' : ''}><td><a href="#" data-vy="${y.y}">${y.y}</a></td><td>${y.bids}</td><td>${y.won}</td><td class="money">${money(y.amount) || '—'}</td></tr>`).join('')}</table>
+      ${st.years.length > 8 ? `<button class="more" data-allyears>顯示全部 ${st.years.length} 年</button>` : ''}</div>
+    <div class="card"><div class="sec">主要往來機關</div>
+      <table class="bid"><tr><th>機關</th><th>投標</th><th>得標</th><th>得標金額</th></tr>
+      ${st.units.map(u => `<tr><td><a href="#" data-vk="${esc(u.name)}">${esc(u.name)}</a></td><td>${u.bids}</td><td>${u.won}</td><td class="money">${money(u.amount) || '—'}</td></tr>`).join('')}</table></div>
+    ${st.rivals.length ? `<div class="card"><div class="sec">常遇到的競爭對手</div>
+      <table class="bid"><tr><th>廠商</th><th>同場</th><th>對方得標</th><th>我方得標</th></tr>
+      ${st.rivals.map(r => `<tr><td><a href="#" class="openv" data-id="${esc(r.id)}" data-n="${esc(r.name)}">${esc(r.name)}</a></td><td>${r.meet}</td><td>${r.theyWon}</td><td>${r.iWon}</td></tr>`).join('')}</table></div>` : ''}
+    <div class="card"><div class="sec">歷次投標／得標</div>
+      <div class="row" style="gap:6px">
+        <div class="chips" style="margin:0">${[['', '全部'], ['得標', '得標'], ['未得標', '未得標']].map(([v, l]) => `<button data-vr="${v}" class="${VF.role === v ? 'cur' : ''}">${l}</button>`).join('')}</div>
+        ${VF.year ? `<span class="tag">${VF.year} 年 <a href="#" data-vy="">×</a></span>` : ''}
+        <input id="v-kw" value="${esc(VF.kw)}" placeholder="篩選標案或機關名稱" style="flex:1;min-width:140px;padding:6px 10px;font-size:14px">
+      </div>
+      <p class="m" style="margin:8px 0 0">符合 ${list.length} 件</p>
+      <ul class="list">${list.slice(0, 300).map(x => `<li>
+        <div class="row"><span class="tag ${x.role === '得標' ? 'ok' : x.role === '未得標' ? 'no' : ''}">${x.role}</span><span class="m">${d8(x.date)}｜${esc(x.unit)}</span></div>
+        <a href="#" class="open" data-u="${esc(x.u)}" data-j="${esc(x.j)}">${esc(x.title)}</a>
+        <div class="m">${[x.budget && '預算 ' + money(x.budget), x.role === '得標' && x.amount && '得標 ' + money(x.amount), x.role !== '得標' && x.total && '決標 ' + money(x.total), x.others.length && (x.role === '得標' ? '其他投標 ' + x.others.length + ' 家' : '得標：' + x.others.filter(o => o.won).map(o => esc(o.name)).join('、'))].filter(Boolean).join('｜')}</div>
+      </li>`).join('')}</ul>
+      ${list.length > 300 ? '<p class="m">只顯示前 300 件，請用上面的條件篩選</p>' : ''}
+    </div>
+    ${(() => { const o = H.items.filter(x => x.role === '相關'); return o.length ? `<div class="card"><div class="sec">其他相關公告</div><ul class="list">${o.map(x => `<li><div class="row"><span class="tag ${/拒絕往來/.test(x.type || '') ? 'no' : ''}">${esc(x.type)}</span><span class="m">${d8(x.date)}｜${esc(x.unit)}</span></div><a href="#" class="open" data-u="${esc(x.u)}" data-j="${esc(x.j)}">${esc(x.title)}</a></li>`).join('')}</ul></div>` : ''; })()}
+    <p class="m" style="text-align:center">只統計已有決標（或無法決標）公告、且公告列出投標廠商的標案。</p>`;
+}
+$('#sh-body').addEventListener('click', e => {
+  const H = (() => { const [k, a] = NAV[NAV.length - 1] || []; return k === 'v' ? vendorCache.get(a[0] || a[1]) : null; })();
+  if (!H) return;
+  if (e.target.closest('[data-allyears]')){ document.querySelectorAll('.old-year').forEach(x => x.hidden = false); e.target.remove(); return; }
+  const r = e.target.closest('[data-vr]'); if (r){ VF.role = r.dataset.vr; renderVendor(H); return; }
+  const y = e.target.closest('[data-vy]'); if (y){ e.preventDefault(); VF.year = y.dataset.vy; renderVendor(H); document.querySelector('#v-kw')?.scrollIntoView({ block: 'center' }); return; }
+  const k = e.target.closest('[data-vk]'); if (k){ e.preventDefault(); VF.kw = k.dataset.vk; renderVendor(H); document.querySelector('#v-kw')?.scrollIntoView({ block: 'center' }); return; }
+  if (e.target.id === 'v-track'){ S.vendors.unshift({ id: H.id || '', name: H.name, note: '' }); save(); render(); e.target.replaceWith(Object.assign(document.createElement('span'), { className: 'm', textContent: '✓ 已追蹤' })); toast('已加入追蹤廠商'); }
+});
+$('#sh-body').addEventListener('change', e => {
+  if (e.target.id !== 'v-kw') return;
+  const [k, a] = NAV[NAV.length - 1] || []; const H = k === 'v' ? vendorCache.get(a[0] || a[1]) : null; if (!H) return;
+  VF.kw = e.target.value.trim(); renderVendor(H);
+});
+
+// ---------- 標案推薦 ----------
+const KW_VOCAB = { '管線':1,'送水管':1,'配水管':1,'導水管':1,'汰換':1,'埋設':1,'埋管':1,'延管':1,'接管':1,'用戶接管':1,'挖補':1,'統一挖補':1,'輸油':1,'輸氣':1,'油管':1,'天然氣':1,'瓦斯':1,'配氣站':1,'開關站':1,'供油中心':1,'明管化':1,'遷管':1,'改管':1,'換管':1,'臨遷':1,'閥箱':1,'水管橋':1,'污水':1,'下水道':1,'雨水':0.6,'排水':0.6,'推進':1,'潛盾':1,'HDD':1,'水平導向':1,'加壓站':1,'淨水場':0.7,'取水口':0.7,'管網':1,'鋼管':1,'人孔':0.8,'管溝':1,'搶修':0.7,'修護':0.6,'道路':0.4,'路面':0.5,'統包':0.4,'開口契約':0.3,'單價':0.3,'後續擴充':0.2 };
+const FORMALISH = t => isFormal(t) || /公開閱覽/.test(t || '');
+const REC_COLS = ['採購資料:預算金額', '標案內容:預算金額', '其他:履約地點', '領投開標:截止投標', '採購資料:標的分類', '標案內容:標的分類', '招標資料:招標狀態', '招標資料:新增公告傳輸次數', '標案內容:公開閱覽日期'];
+const catCode = c => (String(c || '').match(/(\d{3,4})/) || [])[1] || '';
+const county = s => (String(s || '').match(/(臺北市|台北市|新北市|桃園市|臺中市|台中市|臺南市|台南市|高雄市|基隆市|新竹市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義市|嘉義縣|屏東縣|宜蘭縣|花蓮縣|臺東縣|台東縣|澎湖縣|金門縣|連江縣)/) || [])[1]?.replace('台', '臺') || '';
+const family = uid => String(uid || '').split('.').slice(0, 3).join('.');
+
+async function buildProfile(onProg){
+  const co = S.company || {};
+  if (!co.name) throw new Error('請先到「設定」填寫公司名稱和統編');
+  const cols = ['/^投標廠商:投標廠商\\d+:(廠商代碼|是否得標)$/', '已公告資料:預算金額', '已公告資料:標的分類', '已公告資料:履約地點'];
+  const recs = []; let page = 1, total = 1;
+  do { onProg?.(`分析 ${co.name} 的投標紀錄（第 ${page}${total > 1 ? '/' + Math.min(total, 10) : ''} 頁）…`); const r = await api('/api/searchbycompanyname', { query: co.name, page, 'columns[]': cols }); total = r.total_pages || 1; recs.push(...(r.records || [])); page++; } while (page <= total && page <= 10);
+  const nowY = new Date().getFullYear();
+  const fams = {}, cats = {}, kws = {}, regions = {}, budgets = [];
+  let n = 0; const seen = new Set();
+  for (const r of recs){
+    const c = r.brief?.companies || {};
+    if (!((co.id && (c.ids || []).includes(co.id)) || (c.names || []).includes(co.name))) continue;
+    const key = r.unit_id + '|' + r.job_number; if (seen.has(key)) continue; seen.add(key);
+    const age = nowY - +String(r.date).slice(0, 4), w = age <= 3 ? 1 : age <= 7 ? 0.6 : 0.25;
+    n++;
+    const d = r.detail || {};
+    const F = fams[family(r.unit_id)] ||= { id: family(r.unit_id), w: 0, n: 0, names: {} };
+    F.w += w; F.n++; F.names[r.unit_name] = (F.names[r.unit_name] || 0) + 1;
+    const cc = catCode(d['已公告資料:標的分類']); if (cc) (cats[cc] ||= { code: cc, label: String(d['已公告資料:標的分類']).replace(/<[^>]+>/, '').replace(cc, '').trim(), w: 0 }).w += w;
+    for (const k in KW_VOCAB) if ((r.brief?.title || '').includes(k)) kws[k] = (kws[k] || 0) + w;
+    const ct = county(d['已公告資料:履約地點']); if (ct) regions[ct] = (regions[ct] || 0) + w;
+    const b = amount(d['已公告資料:預算金額']); if (b && age <= 7) budgets.push(b);
+  }
+  if (!n) throw new Error(`找不到「${co.name}」的投標紀錄，請確認公司全名`);
+  budgets.sort((a, b) => a - b);
+  const q = p => budgets.length ? budgets[Math.min(budgets.length - 1, Math.floor(budgets.length * p))] : null;
+  return {
+    company: co.name, id: co.id, n, built: new Date().toISOString(), since: Math.min(...[...seen].length ? recs.map(r => +String(r.date).slice(0, 4)) : [nowY]),
+    fams: Object.values(fams).sort((a, b) => b.w - a.w).slice(0, 8).map(f => { const ns = Object.entries(f.names).sort((a, b) => b[1] - a[1]); return { id: f.id, w: +f.w.toFixed(2), n: f.n, name: ns[0][0], root: Object.keys(f.names).sort((a, b) => a.length - b.length)[0], units: Object.fromEntries(ns.slice(0, 15)) }; }),
+    cats: Object.values(cats).sort((a, b) => b.w - a.w).slice(0, 8).map(c => ({ ...c, w: +c.w.toFixed(2) })),
+    kws: Object.entries(kws).filter(([, w]) => w >= 1.5).sort((a, b) => b[1] * KW_VOCAB[b[0]] - a[1] * KW_VOCAB[a[0]]).slice(0, 14).map(([k, w]) => ({ k, w: +w.toFixed(1) })),
+    regions: Object.entries(regions).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k),
+    budget: budgets.length ? [q(0.1), q(0.9)] : null,
+  };
+}
+function activeKws(P){ const off = new Set(S.kwOff || []); return [...P.kws.filter(x => !off.has(x.k)).map(x => ({ k: x.k, w: KW_VOCAB[x.k] ?? 1 })), ...(S.kwExtra || []).map(k => ({ k, w: 1 }))]; }
+function scoreRec(r, P){
+  const why = []; let sc = 0;
+  const title = r.brief?.title || '', d = r.detail || {};
+  const famMax = P.fams[0]?.w || 1, F = P.fams.find(f => f.id === family(r.unit_id));
+  if (F){
+    const same = F.units?.[r.unit_name];
+    sc += 30 * Math.min(1, F.w / famMax) + (same ? 14 : 6);
+    why.push(same ? `曾投此機關 ${same} 次` : `同體系：${shortName(F.root || F.name)}（投過 ${F.n} 次）`);
+  }
+  const cc = catCode(r.brief?.category || d['採購資料:標的分類'] || d['標案內容:標的分類']);
+  const C = cc && P.cats.find(c => c.code === cc);
+  if (C){ sc += 25; why.push(`同類工程：${C.code}`); } else if (cc && P.cats.some(c => c.code.slice(0, 3) === cc.slice(0, 3))){ sc += 10; why.push(`相近類別：${cc}`); }
+  // 關鍵字不重複計分：例如「汰換管線」已算到「汰換」「管線」，就不再算「換管」
+  const covered = new Array(title.length).fill(false), hit = [];
+  for (const x of activeKws(P).sort((a, b) => b.w - a.w || b.k.length - a.k.length)){
+    const i = title.indexOf(x.k); if (i < 0) continue;
+    let fresh = false; for (let j = i; j < i + x.k.length; j++) if (!covered[j]){ fresh = true; covered[j] = true; }
+    if (fresh) hit.push(x);
+  }
+  if (hit.length){ sc += Math.min(36, hit.reduce((a, x) => a + 12 * x.w, 0)); why.push('關鍵字：' + hit.map(x => x.k).slice(0, 4).join('、')); }
+  const b = r.budget_amount || amount(d['採購資料:預算金額']) || amount(d['標案內容:預算金額']);
+  if (b && P.budget){ if (b >= P.budget[0] / 2 && b <= P.budget[1] * 2){ sc += 10; why.push('預算在常投範圍'); } else sc -= 5; }
+  const ct = county(d['其他:履約地點']) || county(title) || county(r.unit_name);
+  // 公開閱覽公告沒有工程類別代碼，補回相當的分數，才不會被排到後面
+  if (/公開閱覽/.test(r.brief?.type || '')){ sc += C ? 6 : 18; why.push('公開閱覽：可提早準備'); }
+  const ri = ct ? P.regions.indexOf(ct) : -1;
+  if (ri >= 0){ sc += ri < 3 ? 16 : 8; why.push('常投地區：' + ct); } else if (ct) sc -= 6;
+  const relevant = hit.length || C;
+  return { raw: relevant ? sc : 0, score: relevant ? Math.max(1, Math.min(99, Math.round(sc * 0.85))) : 0, why, budget: b, deadline: d['領投開標:截止投標'] || '' };
+}
+async function buildRecs(force){
+  const box = $('#recbox');
+  const prog = msg => { const el = document.getElementById('rec-prog'); if (el) el.textContent = msg; };
+  if (!S.profile || force === 'profile' || S.profile.company !== S.company?.name || Date.now() - new Date(S.profile.built) > 7 * 86400000){
+    renderRecs('<span id="rec-prog">分析投標紀錄中…</span>');
+    S.profile = await buildProfile(prog); save();
+  }
+  const P = S.profile, days = S.recDays || 14, from = dateFrom(days);
+  renderRecs('<span id="rec-prog">搜尋最近的標案…</span>');
+  const cand = new Map(), add = r => { if (!FORMALISH(r.brief?.type) || String(r.date) < from) return; const k = r.unit_id + '|' + r.job_number; const prev = cand.get(k); if (!prev || String(prev.date) < String(r.date)) cand.set(k, r); };
+  const fams = P.fams.slice(0, 4), kws = activeKws(P).sort((a, b) => b.w - a.w).slice(0, 5);
+  let step = 0; const steps = fams.length + kws.length;
+  for (const f of fams){
+    prog(`搜尋 ${shortName(f.name)} 的新標案…（${++step}/${steps}）`);
+    try { const r = await api('/api/listbyunit', { unit_id: f.id, include_children: 1, date_from: from, limit: 1000, 'columns[]': REC_COLS }); (r.records || []).forEach(add); } catch(e){}
+  }
+  for (const x of kws){
+    prog(`搜尋含「${x.k}」的新標案…（${++step}/${steps}）`);
+    try { const r = await api('/api/searchbytitle', { query: x.k, 'columns[]': REC_COLS }); (r.records || []).forEach(add); } catch(e){}
+  }
+  const hidden = new Set(S.recHidden || []);
+  const list = [...cand.values()].map(r => ({ r, ...scoreRec(r, P) }))
+    .filter(x => x.raw >= 50 && !hidden.has(x.r.unit_id + '|' + x.r.job_number) && !(x.deadline && countdown(x.deadline) === '已截止'))
+    .sort((a, b) => b.raw - a.raw || String(b.r.date).localeCompare(String(a.r.date))).slice(0, 100)
+    .map(x => ({ u: x.r.unit_id, j: x.r.job_number, date: x.r.date, type: x.r.brief?.type, title: x.r.brief?.title, unit: x.r.unit_name, score: x.score, why: x.why, budget: x.budget, deadline: x.deadline, ri: roundInfo(x.r.brief?.type, x.r.detail), vp: x.r.detail?.['標案內容:公開閱覽日期'] || '' }));
+  const oldKeys = new Set((S.recs?.items || []).map(x => x.u + '|' + x.j));
+  list.forEach(x => x.fresh = S.recs ? !oldKeys.has(x.u + '|' + x.j) : false);
+  S.recs = { built: new Date().toISOString(), days, scanned: cand.size, items: list }; save();
+  renderRecs();
+}
+let recBusy = false;
+async function runRecs(force){
+  if (recBusy) return; recBusy = true;
+  let err = null;
+  try { await buildRecs(force); } catch(e){ err = e; }
+  recBusy = false;
+  renderRecs(err ? `<span style="color:var(--no)">${esc(err.message)}</span>` : undefined);
+}
+function renderRecs(status){
+  const box = $('#recbox'), P = S.profile, R = S.recs;
+  const all = (R?.items || []).filter(x => !(S.recHidden || []).includes(x.u + '|' + x.j));
+  const isView = x => /公開閱覽/.test(x.type || '');
+  const nView = all.filter(isView).length, nTender = all.length - nView;
+  const rt = (S.recType || '').startsWith('focus:') ? '' : (S.recType || ''), so = S.recSort || 'score';
+  const dl = x => rocToDate(x.deadline)?.getTime() || Infinity;
+  const sorters = { score: (a, b) => b.score - a.score, amt_desc: (a, b) => (b.budget || 0) - (a.budget || 0), amt_asc: (a, b) => (a.budget || Infinity) - (b.budget || Infinity), date: (a, b) => String(b.date).localeCompare(String(a.date)), deadline: (a, b) => dl(a) - dl(b) };
+  const items = all.filter(x => !rt || (rt === 'view' ? isView(x) : !isView(x))).sort((a, b) => sorters[so](a, b) || b.score - a.score);
+  $('#rec-n').textContent = all.length ? `(${all.length})` : '';
+  const bar = all.length ? `<div class="card" style="padding:10px 12px"><div class="row" style="gap:8px">
+      <div class="chips" style="margin:0">${[['', `全部 ${all.length}`], ['tender', `公開招標 ${nTender}`], ['view', `公開閱覽 ${nView}`]].map(([v, l]) => `<button data-rtype="${v}" class="${rt === v ? 'cur' : ''}">${l}</button>`).join('')}</div>
+      <span class="sp"></span>
+      <label class="m">排序 <select id="rec-sort" style="width:auto;padding:4px 8px;font-size:14px">${[['score', '相似度'], ['amt_desc', '預算 高→低'], ['amt_asc', '預算 低→高'], ['date', '公告日 新→舊'], ['deadline', '截止日 近→遠']].map(([v, l]) => `<option value="${v}" ${so === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    </div></div>` : '';
+  const off = new Set(S.kwOff || []);
+  const prof = P ? `<details class="card prof"><summary class="row" style="cursor:pointer"><span class="t sp">依 ${esc(P.company)} 的 ${P.n} 件投標紀錄推薦</span><span class="m">調整條件 ▾</span></summary>
+    <dl class="info" style="margin-top:10px">
+      <dt>常投機關</dt><dd>${P.fams.slice(0, 5).map(f => `${esc(shortName(f.name))}（${f.n}）`).join('、')}</dd>
+      <dt>工程類別</dt><dd>${P.cats.slice(0, 5).map(c => esc(c.code + ' ' + c.label)).join('<br>')}</dd>
+      <dt>常投地區</dt><dd>${P.regions.map(esc).join('、') || '—'}</dd>
+      <dt>預算範圍</dt><dd>${P.budget ? money(P.budget[0]) + ' ～ ' + money(P.budget[1]) : '—'}</dd>
+    </dl>
+    <div class="m" style="margin-top:8px">關鍵字（點一下停用／啟用）：</div>
+    <div class="chips">${P.kws.map(x => `<button data-kw="${esc(x.k)}" class="${off.has(x.k) ? 'off' : ''}">${esc(x.k)}</button>`).join('')}${(S.kwExtra || []).map(k => `<button data-kwx="${esc(k)}" class="cur">${esc(k)} ×</button>`).join('')}</div>
+    <div class="row" style="margin-top:8px"><input id="kw-add" placeholder="加入自訂關鍵字，例如：瓦斯" style="flex:1;min-width:140px;padding:6px 10px;font-size:14px"><button class="b g s" id="kw-add-b">加入</button></div>
+    <div class="row" style="margin-top:10px"><label class="m">推薦範圍
+      <select id="rec-days" style="width:auto;padding:4px 8px;font-size:14px">${[7, 14, 30].map(d => `<option value="${d}" ${(S.recDays || 14) === d ? 'selected' : ''}>近 ${d} 天</option>`).join('')}</select></label>
+      <span class="sp"></span><button class="b g s" id="prof-rebuild">重新分析投標紀錄</button></div>
+  </details>` : '';
+  const head = !S.company?.name ? '' : `<div class="row" style="margin:0 0 6px"><span class="t">${esc(S.company.name)}</span><a href="#" class="m" data-goset>更換公司</a></div><div class="row" style="margin:0 0 10px"><span class="m sp">${status || (R ? `${fmtTime(R.built)} 更新・近 ${R.days} 天掃描 ${R.scanned} 件，推薦 ${all.length} 件` : '')}</span><button class="b s" id="rec-run" ${recBusy ? 'disabled' : ''}>${R ? '更新推薦' : '開始分析'}</button></div>`;
+  const cards = items.map(x => {
+    const view = /公開閱覽/.test(x.type || ''), tracked = S.tenders.some(t => t.unit_id === x.u && t.job_number === x.j), cd = x.deadline ? countdown(x.deadline) : '';
+    return `<div class="card rec ${x.fresh ? 'new' : ''}">
+      <div class="row"><span class="score ${x.score >= 85 ? 's-hi' : x.score >= 70 ? 's-mid' : ''}" title="相似度">${x.score}</span><span class="tag ${typeCls(x.type)}">${esc(view ? '公開閱覽' : x.type)}</span>${roundTag(x.ri)}<span class="sp"></span>${x.fresh ? '<span class="m">新</span>' : ''}</div>
+      <div class="t" style="margin-top:6px"><a href="#" class="open" data-u="${esc(x.u)}" data-j="${esc(x.j)}" data-d="${esc(x.date)}">${esc(x.title)}</a></div>
+      <div class="m">${esc(x.unit)}${x.budget ? '｜預算 ' + money(x.budget) : ''}</div>
+      <div class="m times">${timesLine(x.date, { '領投開標:截止投標': x.deadline, '標案內容:公開閱覽日期': x.vp }, x.type)}</div>
+      ${x.ri?.again ? '<div class="m" style="color:var(--amber)">之前招標未成功，點標案名稱看流標原因</div>' : ''}
+      <div class="why">${x.why.map(w => `<span class="${/機關|體系/.test(w) ? 'w-unit' : /類工程|類別/.test(w) ? 'w-cat' : /關鍵字/.test(w) ? 'w-kw' : /預算/.test(w) ? 'w-budget' : /地區|地點/.test(w) ? 'w-region' : /公開閱覽/.test(w) ? 'w-view' : ''}">${esc(w)}</span>`).join('')}</div>
+      <div class="row" style="margin-top:8px">
+        ${tracked ? '<span class="m">✓ 已追蹤</span>' : `<button class="b s" data-rt="1" data-u="${esc(x.u)}" data-j="${esc(x.j)}" data-t="${esc(x.title)}" data-un="${esc(x.unit)}" ${view ? `data-w="1" data-d="${esc(x.date)}"` : ''}>${view ? '正式上網時通知我' : '追蹤標案'}</button>`}
+        <button class="b g s" data-hide="${esc(x.u + '|' + x.j)}">不感興趣</button>
+      </div></div>`;
+  }).join('');
+  box.innerHTML = head + prof + bar + (items.length ? '<div class="grid">' + cards + '</div>' : (!S.company?.name ? `<div class="empty">還沒設定公司。<br><button class="b" data-goset style="margin-top:10px">到「設定」填寫公司名稱和統編</button></div>` : R ? `<div class="empty">${all.length ? '這個類型目前沒有推薦案件' : '這段期間沒有找到相似的標案，可以把推薦範圍拉長或加入關鍵字。'}</div>` : `<div class="empty">按「開始分析」，會依「${esc(S.company?.name || '我的公司')}」的歷次投標紀錄，<br>找出最近類似的公開閱覽和公開招標案。<br><small>第一次約需 30～60 秒</small></div>`));
+}
+$('#recbox').addEventListener('click', e => {
+  if (e.target.closest('[data-goset]')){ e.preventDefault(); document.querySelector('nav [data-tab=backup]').click(); $('#co-id').focus(); return; }
+  if (e.target.id === 'rec-run'){ runRecs(); return; }
+  const ty = e.target.closest('[data-rtype]'); if (ty){ S.recType = ty.dataset.rtype; save(); renderRecs(); return; }
+  if (e.target.id === 'prof-rebuild'){ runRecs('profile'); return; }
+  const kw = e.target.closest('[data-kw]'); if (kw){ const k = kw.dataset.kw; S.kwOff = (S.kwOff || []).includes(k) ? S.kwOff.filter(x => x !== k) : [...(S.kwOff || []), k]; save(); renderRecs('關鍵字已調整，按「更新推薦」套用'); $('#recbox details').open = true; return; }
+  const kx = e.target.closest('[data-kwx]'); if (kx){ S.kwExtra = (S.kwExtra || []).filter(x => x !== kx.dataset.kwx); save(); renderRecs('關鍵字已調整，按「更新推薦」套用'); $('#recbox details').open = true; return; }
+  if (e.target.id === 'kw-add-b'){ const v = $('#kw-add').value.trim(); if (v && !(S.kwExtra || []).includes(v)){ S.kwExtra = [...(S.kwExtra || []), v]; save(); } renderRecs('關鍵字已調整，按「更新推薦」套用'); $('#recbox details').open = true; return; }
+  const h = e.target.closest('[data-hide]'); if (h){ S.recHidden = [...(S.recHidden || []), h.dataset.hide].slice(-500); save(); renderRecs(); toast('已隱藏，不會再推薦這件'); return; }
+  const b = e.target.closest('[data-rt]'); if (b){ const d = b.dataset; const t = { unit_id: d.u, job_number: d.j, title: d.t, unit: d.un, note: '' }; if (d.w){ t.wait_formal = true; t.since = d.d; } if (!S.tenders.some(x => x.unit_id === d.u && x.job_number === d.j)) S.tenders.unshift(t); save(); render(); b.replaceWith(Object.assign(document.createElement('span'), { className: 'm', textContent: '✓ 已追蹤' })); toast(d.w ? '已加入，正式上網時會通知' : '已加入追蹤'); }
+});
+$('#recbox').addEventListener('change', e => { if (e.target.id === 'rec-days'){ S.recDays = +e.target.value; save(); runRecs(); } if (e.target.id === 'rec-sort'){ S.recSort = e.target.value; save(); renderRecs(); } });
+document.querySelectorAll('#evseg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#evseg button').forEach(x => x.classList.toggle('on', x === b));
+  $('#recbox').hidden = b.dataset.ev !== 'rec'; $('#evlist').hidden = b.dataset.ev !== 'news';
+  if (b.dataset.ev === 'news' && S.unread){ S.unread = 0; save(); setTimeout(render, 1500); }
+});
+// ---------- 我的公司設定 ----------
+const coKey = c => c?.id || c?.name || '';
+function renderCompany(){
+  $('#co-id').value = S.company?.id || ''; $('#co-name').value = S.company?.name || '';
+  $('#co-cur').textContent = S.company?.name ? `目前：${S.company.name}` : '尚未設定';
+  const others = (S.companies || []).filter(c => coKey(c) !== coKey(S.company));
+  $('#co-recent').innerHTML = others.length ? `<div class="m" style="margin-top:12px">切換到之前用過的公司：</div><div class="chips">${others.map(c => `<button data-co="${esc(coKey(c))}">${esc(c.name)}${c.id ? ` <small class="m">${esc(c.id)}</small>` : ''}</button>`).join('')}</div>` : '';
+}
+async function findCompanyById(){
+  const id = $('#co-id').value.trim(), msg = $('#co-msg');
+  if (!/^\d{8}$/.test(id)){ msg.textContent = '統一編號要 8 碼數字'; msg.style.color = 'var(--no)'; return; }
+  msg.style.color = ''; msg.textContent = '查詢中…';
+  try {
+    const r = await api('/api/searchbycompanyid', { query: id });
+    let name = '';
+    for (const x of r.records || []){ const c = companies(x.brief?.companies || {}).find(o => o.id === id); if (c){ name = c.name; break; } }
+    if (!name){ msg.textContent = '採購網資料裡找不到這個統編，請直接輸入公司全名'; msg.style.color = 'var(--no)'; return; }
+    $('#co-name').value = name;
+    msg.textContent = `找到：${name}（共 ${r.total_records} 筆相關公告）`; msg.style.color = 'var(--ok)';
+  } catch(e){ msg.textContent = '查詢失敗：' + e.message; msg.style.color = 'var(--no)'; }
+}
+function useCompany(c){
+  // 每家公司的分析結果分開保存，切換回來不用重算
+  if (S.company?.name && S.profile) (S.profiles ||= {})[coKey(S.company)] = { profile: S.profile, recs: S.recs, kwOff: S.kwOff, kwExtra: S.kwExtra };
+  S.company = { id: c.id || '', name: c.name };
+  S.companies = [S.company, ...(S.companies || []).filter(x => coKey(x) !== coKey(c))].slice(0, 8);
+  const saved = (S.profiles || {})[coKey(c)];
+  S.profile = saved?.profile || null; S.recs = saved?.recs || null; S.kwOff = saved?.kwOff || []; S.kwExtra = saved?.kwExtra || [];
+  save(); renderCompany(); renderRecs();
+}
+$('#co-find').onclick = findCompanyById;
+$('#co-id').addEventListener('keydown', e => { if (e.key === 'Enter') findCompanyById(); });
+$('#co-id').addEventListener('input', e => { if (/^\d{8}$/.test(e.target.value.trim()) && e.target.value.trim() !== S.company?.id) findCompanyById(); });
+$('#co-save').onclick = () => {
+  const name = $('#co-name').value.trim(), id = $('#co-id').value.trim();
+  if (!name){ $('#co-msg').textContent = '請輸入公司全名（或先用統編查詢）'; $('#co-msg').style.color = 'var(--no)'; return; }
+  if (id && !/^\d{8}$/.test(id)){ $('#co-msg').textContent = '統一編號要 8 碼數字'; $('#co-msg').style.color = 'var(--no)'; return; }
+  const changed = name !== S.company?.name || id !== (S.company?.id || '');
+  useCompany({ name, id });
+  toast(changed ? '已儲存，開始分析' : '已儲存');
+  document.querySelector('nav [data-tab=events]').click(); document.querySelector('#evseg [data-ev=rec]').click();
+  if (changed || !S.recs) runRecs();
+};
+$('#co-recent').addEventListener('click', e => {
+  const b = e.target.closest('[data-co]'); if (!b) return;
+  const c = (S.companies || []).find(x => coKey(x) === b.dataset.co); if (!c) return;
+  useCompany(c); toast('已切換到 ' + c.name);
+  document.querySelector('nav [data-tab=events]').click(); document.querySelector('#evseg [data-ev=rec]').click();
+  if (!S.recs) runRecs();
+});
+if (S.company?.name && !(S.companies || []).length) S.companies = [S.company];
+renderCompany();
+renderRecs();
+
+// ---------- 資料新鮮度 ----------
+function workdaysBetween(from, to){ // from 之後到 to（含）有幾個上班日（不含國定假日）
+  let n = 0; const d = new Date(from); d.setHours(0, 0, 0, 0); const end = new Date(to); end.setHours(0, 0, 0, 0);
+  while (d < end){ d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) n++; }
+  return n;
+}
+function renderFresh(){
+  const el = $('#fresh'), F = S.fresh;
+  if (!F){ el.className = 'fresh'; el.innerHTML = '<span class="m">檢查資料日期中…</span>'; return; }
+  if (F.error){
+    el.className = 'fresh warn';
+    el.innerHTML = `⚠ 目前連不到資料來源（${esc(F.error)}），新的標案可能查不到。請先到 <a href="https://web.pcc.gov.tw/" target="_blank" rel="noopener">政府電子採購網</a> 手動查詢。`;
+    return;
+  }
+  const latest = new Date(F.latest), lag = workdaysBetween(latest, new Date());
+  const label = `${latest.getMonth() + 1}/${latest.getDate()}`;
+  if (lag > 2){
+    el.className = 'fresh warn';
+    el.innerHTML = `⚠ 資料只更新到 ${label}，已經 ${lag} 個上班日沒有新資料（遇到連假可能是正常的）。資料來源可能暫停，最近的新標案請到 <a href="https://web.pcc.gov.tw/" target="_blank" rel="noopener">政府電子採購網</a> 手動確認。`;
+  } else {
+    el.className = 'fresh';
+    el.innerHTML = `<i></i>資料最新到 ${label}${lag ? `（${lag} 個上班日前）` : ''}・${fmtTime(F.checked)} 檢查`;
+  }
+}
+async function checkFresh(force){
+  if (!force && S.fresh && !S.fresh.error && Date.now() - new Date(S.fresh.checked) < 3600000){ renderFresh(); return; }
+  try {
+    let r, err;
+    for (let i = 0; i < 2 && !r; i++){
+      try { const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 10000); const res = await fetch(`${API}/api/getinfo`, { signal: ctl.signal, headers: S.token ? { Authorization: 'Bearer ' + S.token } : {} }); clearTimeout(tm); if (!res.ok) throw new Error('HTTP ' + res.status); r = await res.json(); }
+      catch(e){ err = e.name === 'AbortError' ? new Error('逾時') : e; if (!i) await sleep(4000); }
+    }
+    if (!r) throw err;
+    const t = r['最新資料時間'];
+    if (!t) throw new Error('回應格式不對');
+    S.fresh = { latest: t, checked: new Date().toISOString() };
+  } catch(e){ S.fresh = { error: e.message, checked: new Date().toISOString() }; }
+  save(); renderFresh();
+}
+renderFresh(); checkFresh();
+
+render();
+// 打開就自動更新（距離上次超過 10 分鐘）
+if ((S.tenders.length || S.vendors.length) && (!S.lastCheck || Date.now() - new Date(S.lastCheck) > 10 * 60 * 1000)) refresh();
+else if (S.company?.name && S.recs && Date.now() - new Date(S.recs.built) > 6 * 3600000) runRecs();
+</script>
+</body>
+</html>
