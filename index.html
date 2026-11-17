@@ -177,6 +177,15 @@ dl.info dt{color:var(--muted)}
 .fresh i{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
 .fresh.warn{background:var(--no-soft);color:var(--no);border-radius:10px;padding:8px 12px;font-size:14px;line-height:1.5;display:block}
 .fresh.warn a{color:var(--no);font-weight:600}
+.openbox{border-color:#fed7aa}
+.openrow{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px dashed var(--line)}
+.openrow:first-of-type{border-top:0}
+.openrow .dl{flex:none;width:62px;text-align:center;border-radius:12px;padding:6px 4px;background:var(--slate-soft);color:var(--ink)}
+.openrow .dl b{display:block;font-size:22px;line-height:1.1}
+.openrow .dl span{font-size:11px;color:var(--muted)}
+.openrow .dl.soon{background:var(--amber-soft);color:var(--amber)}
+.openrow .dl.urgent{background:#ffedd5;color:#c2410c}
+.openrow .dl.urgent span,.openrow .dl.soon span{color:inherit}
 </style>
 </head>
 <body>
@@ -503,15 +512,29 @@ function render(){
   const badge = $('#badge'); badge.hidden = !S.unread; badge.textContent = S.unread;
 
   const tagCls = k => k === '正式上網' ? 'hot' : k === '廠商得標' ? 'ok' : k === '廠商未得標' ? 'no' : k === '標案進度' ? 't-tender' : '';
-  $('#news-n').textContent = S.unread ? `(${S.unread} 新)` : '';
-  $('#evlist').innerHTML = S.events.length ? '<div class="grid">' + S.events.map(e => `
+  // 追蹤中、還在招標期間（截止投標前）的標案，依截止時間排序放在最上面
+  const open = S.tenders.map((t, i) => ({ t, L: t.last || {} }))
+    .filter(({ L }) => L.deadline && !L.award && !/決標/.test(L.status || '') && rocToDate(L.deadline) > Date.now())
+    .sort((a, b) => rocToDate(a.L.deadline) - rocToDate(b.L.deadline));
+  $('#news-n').textContent = [open.length && `${open.length} 招標中`, S.unread && `${S.unread} 新`].filter(Boolean).join('・') ? `(${[open.length && `${open.length} 招標中`, S.unread && `${S.unread} 新`].filter(Boolean).join('・')})` : '';
+  const openHtml = open.length ? `<div class="card openbox"><div class="sec">追蹤中・招標期間內（${open.length}）</div>
+    ${open.map(({ t, L }) => { const days = Math.ceil((rocToDate(L.deadline) - Date.now()) / 86400000), cd = countdown(L.deadline);
+      return `<div class="openrow">
+        <div class="dl ${days <= 3 ? 'urgent' : days <= 7 ? 'soon' : ''}"><b>${days <= 0 ? '今天' : days}</b><span>${days <= 0 ? '截止' : '天後截止'}</span></div>
+        <div class="sp">
+          <a href="#" class="open" data-u="${esc(t.unit_id)}" data-j="${esc(t.job_number)}">${esc(t.title || L.title || t.job_number)}</a>
+          <div class="m">${esc(t.unit || L.unit || '')}${L.round >= 2 ? `｜<span style="color:var(--amber)">第 ${L.round} 次招標</span>` : ''}</div>
+          <div class="m">截止投標 ${esc(L.deadline)}（${cd}）${L.open ? '｜開標 ' + esc(L.open) : ''}${L.budget ? '｜預算 ' + money(L.budget) : ''}</div>
+        </div></div>`; }).join('')}
+    <p class="m" style="margin:6px 0 0">依「標案」分頁追蹤的案子整理，按「立即更新」會重新抓最新截止時間與更正公告。</p></div>` : '';
+  $('#evlist').innerHTML = openHtml + (S.events.length ? '<div class="grid">' + S.events.map(e => `
     <div class="card ${e.fresh ? 'new' : ''}">
       <div class="row"><span class="tag ${tagCls(e.kind)}">${esc(e.kind)}</span>${e.fresh ? '<span class="m">新</span>' : ''}</div>
       <div class="m" style="margin-top:4px">${esc(e.headline)}</div>
       <div class="t" style="margin-top:4px">${e.u ? `<a href="#" class="open" data-u="${esc(e.u)}" data-j="${esc(e.j)}">${esc(e.title)}</a>` : `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`}</div>
       <div class="m">${esc(e.unit)}｜公告 ${d8(e.date)}${e.amount ? '｜<span class="money">' + money(e.amount) + '</span>' : ''}</div>
     </div>`).join('') + '</div>'
-    : `<div class="empty">${S.tenders.length || S.vendors.length ? '目前沒有新動態。<br>第一次更新只會建立基準，之後有新公告才會出現在這裡；<br>「正式上網」則是一出現就會通知。' : '還沒有追蹤任何東西。<br>到「搜尋／加入」找標案或廠商。'}</div>`;
+    : openHtml ? '' : `<div class="empty">${S.tenders.length || S.vendors.length ? '目前沒有新動態。<br>第一次更新只會建立基準，之後有新公告才會出現在這裡；<br>「正式上網」則是一出現就會通知。' : '還沒有追蹤任何東西。<br>到「搜尋／加入」找標案或廠商。'}</div>`);
 
   $('#tenders').innerHTML = S.tenders.length ? '<div class="grid">' + S.tenders.map((t, i) => {
     const L = t.last || {};
