@@ -206,10 +206,9 @@ dl.info dt{color:var(--muted)}
 </div></nav>
 <main>
   <section id="events" class="on">
-    <div id="openbox"></div>
     <div class="seg" id="evseg" style="margin-bottom:12px"><button data-ev="rec" class="on">標案推薦 <span id="rec-n" class="m"></span></button><button data-ev="news">標案動態 <span id="news-n" class="m"></span></button></div>
     <div id="recbox"></div>
-    <div id="evlist" hidden></div>
+    <div id="evlist" hidden><div id="openbox"></div><div id="evitems"></div></div>
   </section>
   <section id="tenders"></section>
   <section id="vendors"></section>
@@ -538,14 +537,14 @@ function render(){
         </div></div>`; }).join('')}
     <p class="m" style="margin:6px 0 0">依「標案」分頁追蹤的案子整理，按「立即更新」會重新抓最新截止時間與更正公告。</p></div>` : '';
   $('#openbox').innerHTML = openHtml;
-  $('#evlist').innerHTML = (S.events.length ? '<div class="grid">' + S.events.map(e => `
+  $('#evitems').innerHTML = (S.events.length ? '<div class="grid">' + S.events.map(e => `
     <div class="card ${e.fresh ? 'new' : ''}">
       <div class="row"><span class="tag ${tagCls(e.kind)}">${esc(e.kind)}</span>${e.fresh ? '<span class="m">新</span>' : ''}</div>
       <div class="m" style="margin-top:4px">${esc(e.headline)}</div>
       <div class="t" style="margin-top:4px">${e.u ? `<a href="#" class="open" data-u="${esc(e.u)}" data-j="${esc(e.j)}">${esc(e.title)}</a>` : `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`}</div>
       <div class="m">${esc(e.unit)}｜公告 ${d8(e.date)}${e.amount ? '｜<span class="money">' + money(e.amount) + '</span>' : ''}</div>
     </div>`).join('') + '</div>'
-    : `<div class="empty">${S.tenders.length || S.vendors.length ? '目前沒有新動態。<br>第一次更新只會建立基準，之後有新公告才會出現在這裡；<br>「正式上網」則是一出現就會通知。' : '還沒有追蹤任何東西。<br>到「搜尋／加入」找標案或廠商。'}</div>`);
+    : openHtml ? '<p class="m" style="text-align:center;margin:16px 0">目前沒有新的公告動態，有更正、決標、流標等新公告會列在這裡。</p>' : `<div class="empty">${S.tenders.length || S.vendors.length ? '目前沒有新動態。<br>第一次更新只會建立基準，之後有新公告才會出現在這裡；<br>「正式上網」則是一出現就會通知。' : '還沒有追蹤任何東西。<br>到「搜尋／加入」找標案或廠商。'}</div>`);
 
   $('#tenders').innerHTML = S.tenders.length ? '<div class="grid">' + S.tenders.map((t, i) => {
     const L = t.last || {};
