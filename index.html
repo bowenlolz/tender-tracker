@@ -806,6 +806,7 @@ const tenderCache = new Map();
 function rocToDate(s){ const m = String(s || '').match(/(\d{2,3})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/); if (!m) return null; return new Date(+m[1] + 1911, m[2] - 1, +m[3], +(m[4] || 23), +(m[5] || 59)); }
 function countdown(s){
   const d = rocToDate(s); if (!d) return '';
+  if (d < Date.now()) return '已截止';
   const days = Math.ceil((d - Date.now()) / 86400000);
   return days > 1 ? `剩 ${days} 天` : days === 1 ? '明天截止' : days === 0 ? '今天截止' : '已截止';
 }
