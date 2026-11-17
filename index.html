@@ -265,7 +265,7 @@ dl.info dt{color:var(--muted)}
       <div class="row"><button class="b" id="sync-qr">顯示同步 QR Code</button><button class="b g" id="sync-link">複製同步連結</button></div>
       <p class="m" style="margin:12px 0 6px">其他方式：</p>
       <div class="row"><button class="b g" id="exp">複製備份</button><button class="b g" id="dl">下載備份檔</button><label class="b g" style="display:inline-block">選擇備份檔<input type="file" id="file" accept=".json,application/json" hidden></label></div>
-      <textarea id="io" placeholder="把備份內容貼在這裡" style="margin-top:10px"></textarea>
+      <textarea id="io" placeholder="把同步連結或備份內容貼在這裡" style="margin-top:10px"></textarea>
       <div class="row" style="margin-top:8px"><button class="b" id="imp">匯入（取代目前清單）</button><button class="b g" id="merge">合併</button></div>
     </div>
     <div class="card">
@@ -826,7 +826,16 @@ const exportData = () => JSON.stringify({ app: 'pcc-tracker', v: 1, company: S.c
 $('#exp').onclick = async () => { const s = exportData(); $('#io').value = s; try { await navigator.clipboard.writeText(s); toast('已複製，貼到另一台裝置'); } catch(e){ $('#io').select(); toast('請手動複製下面的文字'); } };
 $('#dl').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([exportData()], { type: 'application/json' })); a.download = `標案追蹤備份-${new Date().toISOString().slice(0,10)}.json`; a.click(); };
 $('#file').onchange = async e => { const f = e.target.files[0]; if (f){ $('#io').value = await f.text(); toast('已讀入，按「匯入」或「合併」'); } };
-function readIO(){ try { const d = JSON.parse($('#io').value); if (!Array.isArray(d.vendors) || !Array.isArray(d.tenders)) throw 0; return d; } catch(e){ toast('格式不對，請貼上完整的備份內容'); return null; } }
+async function decodeSync(text){
+  const m = String(text).trim().match(/#sync=([zj])([A-Za-z0-9_-]+)/); if (!m) return null;
+  const u8 = unb64u(m[2]); const d = JSON.parse(m[1] === 'z' ? await inflate(u8) : new TextDecoder().decode(u8));
+  if (!Array.isArray(d.vendors) || !Array.isArray(d.tenders)) throw 0; return d;
+}
+async function readIO(){
+  const v = $('#io').value.trim();
+  try { const d = /#sync=/.test(v) ? await decodeSync(v) : JSON.parse(v); if (!d || !Array.isArray(d.vendors) || !Array.isArray(d.tenders)) throw 0; return d; }
+  catch(e){ toast('格式不對，請貼上完整的同步連結或備份內容'); return null; }
+}
 function applyData(d, replace){
   let n = 0;
   if (replace){ S.vendors = d.vendors; S.tenders = d.tenders; S.events = []; S.unread = 0; }
@@ -839,8 +848,8 @@ function applyData(d, replace){
   renderCompany(); save(); render();
   return n;
 }
-$('#imp').onclick = () => { const d = readIO(); if (!d) return; applyData(d, true); toast('已匯入，按「立即更新」載入資料'); };
-$('#merge').onclick = () => { const d = readIO(); if (!d) return; toast(`合併了 ${applyData(d, false)} 項`); };
+$('#imp').onclick = async () => { const d = await readIO(); if (!d) return; applyData(d, true); toast('已匯入，按「立即更新」載入資料'); };
+$('#merge').onclick = async () => { const d = await readIO(); if (!d) return; toast(`合併了 ${applyData(d, false)} 項`); };
 
 // ---------- 同步 QR Code ----------
 const b64u = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -861,8 +870,24 @@ async function syncLink(){
 }
 function sheetShow(title, html){ NAV = []; $('#sh-back').hidden = true; $('#sh-title').textContent = title; $('#sh-body').innerHTML = html; $('#sheet').classList.add('on'); document.body.style.overflow = 'hidden'; SHEET_TOK++; }
 const syncSummary = d => `公司：${esc(d.company?.name || '（未設定）')}<br>追蹤廠商 ${d.vendors.length} 家・追蹤標案 ${d.tenders.length} 件`;
-async function copyText(t, msg){ try { await navigator.clipboard.writeText(t); toast(msg); return true; } catch(e){ return false; } }
-$('#sync-link').onclick = async () => { const { url } = await syncLink(); if (!await copyText(url, '已複製連結，貼到 LINE 傳給自己，在另一台打開')){ $('#io').value = url; $('#io').select(); toast('請手動複製下面的連結'); } };
+function legacyCopy(t){ const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length); let ok = false; try { ok = document.execCommand('copy'); } catch(e){} ta.remove(); return ok; }
+// 在點擊當下就呼叫剪貼簿（iPhone 規定），內容可以晚一點才算好
+async function copyLater(getText){
+  const p = Promise.resolve().then(getText);
+  try {
+    if (window.ClipboardItem && navigator.clipboard?.write){ await navigator.clipboard.write([new ClipboardItem({ 'text/plain': p.then(t => new Blob([t], { type: 'text/plain' })) })]); return true; }
+  } catch(e){}
+  const t = await p;
+  try { await navigator.clipboard.writeText(t); return true; } catch(e){}
+  return legacyCopy(t);
+}
+function showLink(url){ $('#io').value = url; $('#io').scrollIntoView({ block: 'center' }); $('#io').focus(); $('#io').select(); }
+let LINK = null;
+$('#sync-link').onclick = async () => {
+  LINK = null; const job = syncLink().then(r => (LINK = r.url));
+  const ok = await copyLater(() => job); await job; showLink(LINK);
+  toast(ok ? '已複製同步連結（也放在下面框框裡），用 LINE 傳給自己' : '自動複製失敗：下面框框裡的連結已選取，請長按「拷貝」');
+};
 $('#sync-qr').onclick = async () => {
   const { url, ok } = await syncLink(), d = JSON.parse(exportData());
   let qrHtml = '';
@@ -872,20 +897,21 @@ $('#sync-qr').onclick = async () => {
     <p class="m" style="margin-top:12px">用另一台手機的<b>相機</b>對準掃描，打開網頁後選「取代」或「合併」。</p>
     <p class="m">${syncSummary(d)}</p>
     <p class="m" style="font-size:12px">QR Code 裡含公司名稱、統編和追蹤清單，不要給不相關的人掃。API token 不會一起帶過去。</p>
-    <div class="row" style="justify-content:center"><button class="b g" id="sync-copy2">複製同步連結</button></div></div>`);
-  $('#sync-copy2').onclick = () => copyText(url, '已複製連結');
+    <div class="row" style="justify-content:center"><button class="b g" id="sync-copy2">複製同步連結</button></div>
+    <textarea id="sync-url" readonly style="margin-top:10px;font-size:12px;height:70px">${esc(url)}</textarea></div>`);
+  $('#sync-copy2').onclick = async () => { if (await copyLater(() => url)) toast('已複製同步連結'); else { const t = $('#sync-url'); t.focus(); t.select(); toast('請長按框框裡的連結複製'); } };
 };
 async function receiveSync(){
   const m = location.hash.match(/^#sync=([zj])(.+)$/); if (!m) return false;
   history.replaceState(null, '', location.pathname + location.search);
   let d;
-  try { const u8 = unb64u(m[2]); d = JSON.parse(m[1] === 'z' ? await inflate(u8) : new TextDecoder().decode(u8)); if (!Array.isArray(d.vendors) || !Array.isArray(d.tenders)) throw 0; }
-  catch(e){ toast('同步連結不完整，請重新掃描'); return false; }
+  try { d = await decodeSync('#sync=' + m[1] + m[2]); } catch(e){ d = null; }
+  if (!d){ toast('同步連結不完整，請重新掃描'); return false; }
   const has = S.vendors.length + S.tenders.length;
   sheetShow('收到同步資料', `<div class="card"><p>${syncSummary(d)}</p>
     <p class="m">${has ? `這台目前有 ${S.vendors.length} 家廠商、${S.tenders.length} 件標案。<br>「取代」會改成跟另一台一模一樣；「合併」會把兩邊的加在一起。` : '這台還沒有追蹤項目，按「取代」即可。'}</p>
     <div class="row" style="margin-top:10px"><button class="b" id="rs-rep">取代</button>${has ? '<button class="b g" id="rs-mer">合併</button>' : ''}<button class="b g" id="rs-no">取消</button></div></div>`);
-  const done = n => { closeSheet(); toast(n); S.tenders.filter(t => !t.last).forEach(t => trackNow(t.unit_id, t.job_number)); };
+  const done = n => { closeSheet(); toast(n); $('#io').value = ''; S.tenders.filter(t => !t.last).forEach(t => trackNow(t.unit_id, t.job_number)); };
   $('#rs-rep').onclick = () => { applyData(d, true); done('已同步，正在載入資料'); };
   if (has) $('#rs-mer').onclick = () => done(`合併了 ${applyData(d, false)} 項`);
   $('#rs-no').onclick = closeSheet;
