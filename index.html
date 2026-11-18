@@ -196,6 +196,7 @@ dl.info dt{color:var(--muted)}
   <div class="bar" id="bar" style="flex-basis:100%"><i></i></div>
   <div class="m" id="status" style="flex-basis:100%;min-height:0"></div>
   <div id="fresh" style="flex-basis:100%"></div>
+  <div id="newver" hidden style="flex-basis:100%;margin-top:6px"><button class="b" id="newver-b" style="width:100%">有新版本，點這裡更新</button></div>
 </header>
 <nav><div class="in">
   <button data-tab="events" class="on">最新動態<span class="badge" id="badge" hidden></span></button>
@@ -265,7 +266,7 @@ dl.info dt{color:var(--muted)}
     </div>
     <div class="card">
       <div class="t">在手機、平板、電腦之間同步</div>
-      <p class="m">每台裝置的追蹤清單和公司設定分開存。<b>最快：</b>在有最新資料的那台按「顯示同步 QR Code」，在要更新的這台按「📷 掃描 QR Code」對準掃描，選「取代」或「合併」就完成，用桌面圖示開的也能直接更新。也可以按「複製同步連結」用 LINE 傳給自己。</p>
+      <p class="m"><b>已登入帳號的話會自動同步，不需要用這裡。</b>沒登入時，每台裝置的資料分開存：在有最新資料的那台按「顯示同步 QR Code」，在要更新的這台按「📷 掃描 QR Code」對準掃描，選「取代」或「合併」就完成，用桌面圖示開的也能直接更新。也可以按「複製同步連結」用 LINE 傳給自己。</p>
       <div class="row"><button class="b" id="sync-scan">📷 掃描 QR Code</button><button class="b g" id="sync-qr">顯示同步 QR Code</button><button class="b g" id="sync-link">複製同步連結</button></div>
       <p class="m" style="margin:12px 0 6px">其他方式：</p>
       <div class="row"><button class="b g" id="exp">複製備份</button><button class="b g" id="dl">下載備份檔</button><label class="b g" style="display:inline-block">選擇備份檔<input type="file" id="file" accept=".json,application/json" hidden></label></div>
@@ -289,6 +290,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 const API = 'https://pcc-api.openfun.app';
 const VIEWER = 'https://openfunltd.github.io/pcc-viewer';
 const KEY = 'pcc_standalone_v1';
+const APP_VER = '20261118204134';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const d8 = d => (d = String(d || '')).length === 8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)}` : d;
@@ -1766,6 +1768,17 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 render();
 receiveSync();
 cloudInit();
+// 檢查網站是否有新版本（GitHub Pages 會暫存 10 分鐘左右）
+async function checkVersion(){
+  if (location.protocol !== 'https:') return;
+  try {
+    const t = await (await fetch(location.pathname + '?vc=' + Date.now(), { cache: 'no-store' })).text();
+    const v = (t.match(/const APP_VER = '([^']+)'/) || [])[1];
+    if (v && v !== APP_VER){ $('#newver').hidden = false; $('#newver-b').onclick = () => location.replace(location.pathname + '?v=' + v); }
+  } catch(e){}
+}
+checkVersion();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
 window.addEventListener('hashchange', receiveSync);
 // 打開就自動更新（距離上次超過 10 分鐘）
 if ((S.tenders.length || S.vendors.length) && (!S.lastCheck || Date.now() - new Date(S.lastCheck) > 10 * 60 * 1000)) refresh();
