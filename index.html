@@ -248,6 +248,10 @@ dl.info dt{color:var(--muted)}
     <div id="more" style="text-align:center"></div>
   </section>
   <section id="backup">
+    <div class="card" id="acct-card">
+      <div class="t">帳號登入・所有裝置同步</div>
+      <div id="acct"><p class="m">載入中…</p></div>
+    </div>
     <div class="card" id="co-card">
       <div class="t">我的公司</div>
       <p class="m" style="margin:4px 0 10px">標案推薦會用這家公司的歷次投標紀錄，找出最近類似的公開閱覽和招標案。可以隨時換成其他公司。</p>
@@ -300,7 +304,8 @@ function load(){
   try { const s = localStorage.getItem(KEY); return s ? Object.assign(blank(), JSON.parse(s)) : blank(); }
   catch(e){ return memStore || blank(); }
 }
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){ memStore = S; } }
+function saveLocal(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){ memStore = S; } }
+function save(){ saveLocal(); if (typeof cloudQueue === 'function') cloudQueue(); }
 let S = load();
 
 // ---------- API ----------
@@ -1571,8 +1576,167 @@ async function checkFresh(force){
 renderFresh(); checkFresh();
 S.tenders.filter(t => !t.last).forEach(t => trackNow(t.unit_id, t.job_number));
 
+
+// ---------- 帳號登入・雲端同步（Firebase） ----------
+const FIREBASE_CONFIG = null; // ← 貼上 Firebase 專案的 firebaseConfig
+const FB_SDK = 'https://www.gstatic.com/firebasejs/11.0.2/';
+const CLOUD = { fb: null, user: undefined, unsub: null, timer: null, busy: false, applying: false, status: '', synced: null, err: '' };
+const hashStr = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = (h * 33 ^ s.charCodeAt(i)) >>> 0; return h.toString(36) + ':' + s.length; };
+function syncedState(){
+  const d = JSON.parse(exportData()), kw = {};
+  for (const [k, v] of Object.entries(S.profiles || {})) if (v && ((v.kwOff || []).length || (v.kwExtra || []).length)) kw[k] = { kwOff: v.kwOff || [], kwExtra: v.kwExtra || [] };
+  if (S.company?.name) kw[coKey(S.company)] = { kwOff: S.kwOff || [], kwExtra: S.kwExtra || [] };
+  return { company: d.company || { id: '', name: '' }, companies: d.companies || [], vendors: d.vendors, tenders: d.tenders, kw, recHidden: S.recHidden || [], recDays: S.recDays || 14, recType: S.recType || '', recSort: S.recSort || '' };
+}
+function normSynced(d){ return { company: d.company || { id: '', name: '' }, companies: d.companies || [], vendors: d.vendors || [], tenders: d.tenders || [], kw: d.kw || {}, recHidden: d.recHidden || [], recDays: d.recDays || 14, recType: d.recType || '', recSort: d.recSort || '' }; }
+function mergeSynced(base, add){
+  const r = normSynced(JSON.parse(JSON.stringify(base))), a = normSynced(add);
+  const vk = v => v.id || v.name, tk = t => t.unit_id + '|' + t.job_number;
+  a.vendors.forEach(v => { if (!r.vendors.some(x => vk(x) === vk(v))) r.vendors.push(v); });
+  a.tenders.forEach(t => { if (!r.tenders.some(x => tk(x) === tk(t))) r.tenders.push(t); });
+  a.companies.forEach(c => { if (!r.companies.some(x => coKey(x) === coKey(c))) r.companies.push(c); });
+  if (!r.company?.name) r.company = a.company;
+  for (const [k, v] of Object.entries(a.kw)) r.kw[k] = r.kw[k] ? { kwOff: [...new Set([...r.kw[k].kwOff, ...v.kwOff])], kwExtra: [...new Set([...r.kw[k].kwExtra, ...v.kwExtra])] } : v;
+  r.recHidden = [...new Set([...r.recHidden, ...a.recHidden])].slice(-500);
+  return r;
+}
+function applySynced(d){
+  d = normSynced(d);
+  CLOUD.applying = true;
+  try {
+    const tk = t => t.unit_id + '|' + t.job_number, vk = v => v.id || v.name;
+    const oldT = new Map(S.tenders.map(t => [tk(t), t])), oldV = new Map(S.vendors.map(v => [vk(v), v]));
+    S.tenders = d.tenders.map(t => Object.assign(oldT.get(tk(t)) || {}, { note: undefined, wait_formal: undefined, formal_found: undefined }, t));
+    S.vendors = d.vendors.map(v => Object.assign(oldV.get(vk(v)) || {}, { label: undefined, note: undefined }, v));
+    if (d.company?.name && coKey(d.company) !== coKey(S.company)){
+      if (S.company?.name && S.profile) (S.profiles ||= {})[coKey(S.company)] = { profile: S.profile, recs: S.recs, kwOff: S.kwOff, kwExtra: S.kwExtra };
+      S.company = { id: d.company.id || '', name: d.company.name };
+      const sv = (S.profiles || {})[coKey(S.company)]; S.profile = sv?.profile || null; S.recs = sv?.recs || null;
+    }
+    S.companies = d.companies;
+    for (const [k, v] of Object.entries(d.kw)){ if ((S.profiles ||= {})[k]) Object.assign(S.profiles[k], v); if (k === coKey(S.company)){ S.kwOff = v.kwOff; S.kwExtra = v.kwExtra; } }
+    S.recHidden = d.recHidden; S.recDays = d.recDays; if (d.recType) S.recType = d.recType; if (d.recSort) S.recSort = d.recSort;
+    saveLocal(); render(); renderCompany(); try { renderRecs(); } catch(e){}
+    S.tenders.filter(t => !t.last).forEach(t => trackNow(t.unit_id, t.job_number));
+  } finally { CLOUD.applying = false; }
+}
+function cloudRef(){ const { F, db } = CLOUD.fb; return F.doc(db, 'users', CLOUD.user.uid); }
+async function cloudPush(json){
+  const { F } = CLOUD.fb;
+  await F.setDoc(cloudRef(), { data: json, updated: F.serverTimestamp(), device: S.device, v: 1 });
+  S.cloudBase = hashStr(json); saveLocal(); CLOUD.synced = new Date(); CLOUD.err = '';
+}
+// 三方比對：上次同步的版本 vs 這台 vs 雲端
+async function reconcile(remoteJson){
+  if (!CLOUD.user || CLOUD.busy) return;
+  CLOUD.busy = true;
+  try {
+    const local = JSON.stringify(syncedState()), base = S.cloudBase;
+    if (!remoteJson){ await cloudPush(local); }
+    else if (remoteJson === local){ S.cloudBase = hashStr(local); saveLocal(); CLOUD.synced = new Date(); }
+    else {
+      const lc = hashStr(local) !== base, rc = hashStr(remoteJson) !== base;
+      if (!lc){ applySynced(JSON.parse(remoteJson)); S.cloudBase = hashStr(JSON.stringify(syncedState())); saveLocal(); CLOUD.synced = new Date(); }
+      else if (!rc){ await cloudPush(local); }
+      else {
+        const merged = mergeSynced(JSON.parse(remoteJson), JSON.parse(local));
+        applySynced(merged);
+        const j = JSON.stringify(syncedState());
+        if (j !== remoteJson) await cloudPush(j); else { S.cloudBase = hashStr(j); saveLocal(); CLOUD.synced = new Date(); }
+      }
+    }
+    CLOUD.err = '';
+  } catch(e){ CLOUD.err = cloudErr(e); }
+  finally { CLOUD.busy = false; renderAcct(); }
+  // 同步期間又有修改
+  if (CLOUD.user && hashStr(JSON.stringify(syncedState())) !== S.cloudBase) cloudQueue();
+}
+function cloudQueue(){
+  if (!CLOUD.user || CLOUD.applying) return;
+  clearTimeout(CLOUD.timer);
+  CLOUD.timer = setTimeout(async () => {
+    if (CLOUD.busy){ cloudQueue(); return; }
+    const j = JSON.stringify(syncedState());
+    if (hashStr(j) === S.cloudBase) return;
+    CLOUD.busy = true; renderAcct();
+    try { await cloudPush(j); } catch(e){ CLOUD.err = cloudErr(e); }
+    finally { CLOUD.busy = false; renderAcct(); }
+  }, 1200);
+}
+async function cloudPull(){
+  if (!CLOUD.user) return;
+  try { const snap = await CLOUD.fb.F.getDoc(cloudRef()); await reconcile(snap.exists() ? snap.data().data : null); }
+  catch(e){ CLOUD.err = cloudErr(e); renderAcct(); }
+}
+function cloudErr(e){
+  const c = e?.code || e?.message || '';
+  const M = { 'auth/invalid-credential': 'Email 或密碼不對', 'auth/wrong-password': 'Email 或密碼不對', 'auth/user-not-found': '找不到這個帳號，要先按「建立帳號」', 'auth/invalid-email': 'Email 格式不對',
+    'auth/email-already-in-use': '這個 Email 已經有帳號了，直接登入即可', 'auth/weak-password': '密碼至少要 6 個字', 'auth/missing-password': '請輸入密碼', 'auth/too-many-requests': '嘗試太多次，請稍後再試',
+    'auth/network-request-failed': '網路連不上，請確認網路', 'auth/operation-not-allowed': 'Firebase 還沒開啟「電子郵件／密碼」登入', 'auth/admin-restricted-operation': '已關閉建立新帳號，請用原本的帳號登入',
+    'permission-denied': '雲端資料庫拒絕存取（請檢查 Firestore 規則）', 'unavailable': '暫時連不上雲端，網路恢復後會自動同步' };
+  for (const k in M) if (c.includes(k)) return M[k];
+  return '發生問題：' + (e?.message || c);
+}
+async function onUser(u){
+  CLOUD.unsub?.(); CLOUD.unsub = null;
+  CLOUD.user = u || null; renderAcct();
+  if (!u) return;
+  if (S.cloudUid !== u.uid){ S.cloudUid = u.uid; S.cloudBase = null; saveLocal(); }
+  await cloudPull();
+  CLOUD.unsub = CLOUD.fb.F.onSnapshot(cloudRef(), snap => {
+    if (snap.metadata?.hasPendingWrites || !snap.exists()) return;
+    const j = snap.data().data;
+    if (hashStr(j) === S.cloudBase) return;
+    reconcile(j);
+  }, e => { CLOUD.err = cloudErr(e); renderAcct(); });
+}
+function renderAcct(){
+  const el = $('#acct'); if (!el) return;
+  if (!FIREBASE_CONFIG){ el.innerHTML = '<p class="m">還沒有啟用。設定好 Firebase 專案後，就能用同一組 Email 在每台裝置登入，自動同步追蹤清單和公司設定。</p>'; return; }
+  if (CLOUD.user === undefined){ el.innerHTML = `<p class="m">${esc(CLOUD.err || '連線中…')}</p>`; return; }
+  if (!CLOUD.user){
+    el.innerHTML = `<p class="m" style="margin:4px 0 10px">用同一組 Email 在手機、平板、電腦登入，追蹤清單、公司設定、推薦關鍵字會自動同步。第一次登入時，這台的資料會合併到帳號裡。</p>
+      <input id="ac-email" type="email" placeholder="Email" autocomplete="username" inputmode="email" autocapitalize="off">
+      <input id="ac-pw" type="password" placeholder="密碼（至少 6 個字）" autocomplete="current-password" style="margin-top:8px">
+      <div class="m" id="ac-msg" style="margin-top:6px;min-height:1.2em;color:var(--no)">${esc(CLOUD.err)}</div>
+      <div class="row" style="margin-top:6px"><button class="b" id="ac-in">登入</button><button class="b g" id="ac-up">建立帳號</button><span class="sp"></span><button class="b g" id="ac-reset" style="font-size:13px">忘記密碼</button></div>`;
+    const go = async fn => {
+      const email = $('#ac-email').value.trim(), pw = $('#ac-pw').value, m = $('#ac-msg');
+      if (!email){ m.textContent = '請輸入 Email'; return; }
+      m.style.color = 'var(--muted)'; m.textContent = '處理中…';
+      try { CLOUD.err = ''; await fn(email, pw); }
+      catch(e){ m.style.color = 'var(--no)'; m.textContent = cloudErr(e); }
+    };
+    const { Au, auth } = CLOUD.fb;
+    $('#ac-in').onclick = () => go((e, p) => Au.signInWithEmailAndPassword(auth, e, p));
+    $('#ac-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('#ac-in').click(); });
+    $('#ac-up').onclick = () => go((e, p) => Au.createUserWithEmailAndPassword(auth, e, p));
+    $('#ac-reset').onclick = () => go(async e => { await Au.sendPasswordResetEmail(auth, e); const m = $('#ac-msg'); m.style.color = 'var(--ok)'; m.textContent = '已寄出重設密碼信，請到信箱收信（也看一下垃圾郵件）'; });
+    return;
+  }
+  const st = CLOUD.err ? `<span style="color:var(--no)">${esc(CLOUD.err)}</span>` : CLOUD.busy ? '同步中…' : CLOUD.synced ? `已同步・${fmtTime(CLOUD.synced.toISOString())}` : '連線中…';
+  el.innerHTML = `<p style="margin:6px 0 2px">已登入 <b>${esc(CLOUD.user.email || '')}</b></p><p class="m" style="margin:0 0 10px">${st}</p>
+    <p class="m" style="font-size:12px;margin:0 0 10px">在任何一台新增、刪除追蹤或換公司，其他台打開網頁就會自動更新。API token 不會同步。</p>
+    <div class="row"><button class="b g" id="ac-sync">立即同步</button><span class="sp"></span><button class="b g" id="ac-out">登出</button></div>`;
+  $('#ac-sync').onclick = () => { CLOUD.err = ''; cloudPull(); };
+  $('#ac-out').onclick = async () => { await CLOUD.fb.Au.signOut(CLOUD.fb.auth); S.cloudBase = null; S.cloudUid = null; saveLocal(); toast('已登出，這台的資料仍保留'); };
+}
+async function cloudInit(){
+  S.device ||= Math.random().toString(36).slice(2, 10);
+  if (!FIREBASE_CONFIG){ renderAcct(); return; }
+  renderAcct();
+  try {
+    const [A, Au, F] = await Promise.all(['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js'].map(f => import(FB_SDK + f)));
+    const app = A.initializeApp(FIREBASE_CONFIG);
+    CLOUD.fb = { Au, F, auth: Au.getAuth(app), db: F.getFirestore(app) };
+    Au.onAuthStateChanged(CLOUD.fb.auth, onUser);
+  } catch(e){ CLOUD.err = '雲端元件載入失敗，請確認網路後重新整理'; renderAcct(); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && CLOUD.user) cloudPull(); });
+
 render();
 receiveSync();
+cloudInit();
 window.addEventListener('hashchange', receiveSync);
 // 打開就自動更新（距離上次超過 10 分鐘）
 if ((S.tenders.length || S.vendors.length) && (!S.lastCheck || Date.now() - new Date(S.lastCheck) > 10 * 60 * 1000)) refresh();
