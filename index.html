@@ -1723,7 +1723,30 @@ function renderAcct(){
   const st = CLOUD.err ? `<span style="color:var(--no)">${esc(CLOUD.err)}</span>` : CLOUD.busy ? '同步中…' : CLOUD.synced ? `已同步・${fmtTime(CLOUD.synced.toISOString())}` : '連線中…';
   el.innerHTML = `<p style="margin:6px 0 2px">已登入 <b>${esc(CLOUD.user.email || '')}</b></p><p class="m" style="margin:0 0 10px">${st}</p>
     <p class="m" style="font-size:12px;margin:0 0 10px">在任何一台新增、刪除追蹤或換公司，其他台打開網頁就會自動更新。API token 不會同步。</p>
-    <div class="row"><button class="b g" id="ac-sync">立即同步</button><span class="sp"></span><button class="b g" id="ac-out">登出</button></div>`;
+    <div class="row"><button class="b g" id="ac-sync">立即同步</button><span class="sp"></span><button class="b g" id="ac-pwbtn">更改密碼</button><button class="b g" id="ac-out">登出</button></div>
+    <div id="ac-pwbox" hidden style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+      <input id="ac-old" type="password" placeholder="目前的密碼" autocomplete="current-password">
+      <input id="ac-new" type="password" placeholder="新密碼（至少 6 個字）" autocomplete="new-password" style="margin-top:8px">
+      <input id="ac-new2" type="password" placeholder="再輸入一次新密碼" autocomplete="new-password" style="margin-top:8px">
+      <div class="m" id="ac-pwmsg" style="margin-top:6px;min-height:1.2em"></div>
+      <div class="row"><button class="b" id="ac-pwsave">確認更改</button><button class="b g" id="ac-pwcancel">取消</button></div>
+    </div>`;
+  $('#ac-pwbtn').onclick = () => { $('#ac-pwbox').hidden = false; $('#ac-old').focus(); };
+  $('#ac-pwcancel').onclick = () => { $('#ac-pwbox').hidden = true; };
+  $('#ac-pwsave').onclick = async () => {
+    const o = $('#ac-old').value, n = $('#ac-new').value, n2 = $('#ac-new2').value, m = $('#ac-pwmsg'), bad = t => { m.style.color = 'var(--no)'; m.textContent = t; };
+    if (!o) return bad('請輸入目前的密碼');
+    if (n.length < 6) return bad('新密碼至少要 6 個字');
+    if (n !== n2) return bad('兩次輸入的新密碼不一樣');
+    if (n === o) return bad('新密碼和目前的密碼一樣');
+    m.style.color = 'var(--muted)'; m.textContent = '處理中…';
+    try {
+      const { Au, auth } = CLOUD.fb, u = auth.currentUser;
+      await Au.reauthenticateWithCredential(u, Au.EmailAuthProvider.credential(u.email, o));
+      await Au.updatePassword(u, n);
+      $('#ac-pwbox').hidden = true; m.textContent = ''; ['#ac-old', '#ac-new', '#ac-new2'].forEach(x => $(x).value = ''); toast('密碼已更改，其他裝置下次登入請用新密碼');
+    } catch(e){ bad(/invalid-credential|wrong-password/.test(e.code || '') ? '目前的密碼不對' : cloudErr(e)); }
+  };
   $('#ac-sync').onclick = () => { CLOUD.err = ''; cloudPull(); };
   $('#ac-out').onclick = async () => { await CLOUD.fb.Au.signOut(CLOUD.fb.auth); S.cloudBase = null; S.cloudUid = null; saveLocal(); toast('已登出，這台的資料仍保留'); };
 }
