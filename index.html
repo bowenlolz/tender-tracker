@@ -1670,7 +1670,7 @@ async function cloudPull(){
 }
 function cloudErr(e){
   const c = e?.code || e?.message || '';
-  const M = { 'auth/invalid-credential': 'Email 或密碼不對', 'auth/wrong-password': 'Email 或密碼不對', 'auth/user-not-found': '找不到這個帳號，要先按「建立帳號」', 'auth/invalid-email': 'Email 格式不對',
+  const M = { 'auth/invalid-credential': 'Email 或密碼不對', 'auth/wrong-password': 'Email 或密碼不對', 'auth/user-not-found': '找不到這個帳號，請向管理者申請', 'auth/invalid-email': 'Email 格式不對',
     'auth/email-already-in-use': '這個 Email 已經有帳號了，直接登入即可', 'auth/weak-password': '密碼至少要 6 個字', 'auth/missing-password': '請輸入密碼', 'auth/too-many-requests': '嘗試太多次，請稍後再試',
     'auth/network-request-failed': '網路連不上，請確認網路', 'auth/operation-not-allowed': 'Firebase 還沒開啟「電子郵件／密碼」登入', 'auth/admin-restricted-operation': '已關閉建立新帳號，請用原本的帳號登入',
     'permission-denied': '雲端資料庫拒絕存取（請檢查 Firestore 規則）', 'unavailable': '暫時連不上雲端，網路恢復後會自動同步' };
@@ -1695,11 +1695,11 @@ function renderAcct(){
   if (!FIREBASE_CONFIG){ el.innerHTML = '<p class="m">還沒有啟用。設定好 Firebase 專案後，就能用同一組 Email 在每台裝置登入，自動同步追蹤清單和公司設定。</p>'; return; }
   if (CLOUD.user === undefined){ el.innerHTML = `<p class="m">${esc(CLOUD.err || '連線中…')}</p>`; return; }
   if (!CLOUD.user){
-    el.innerHTML = `<p class="m" style="margin:4px 0 10px">用同一組 Email 在手機、平板、電腦登入，追蹤清單、公司設定、推薦關鍵字會自動同步。第一次登入時，這台的資料會合併到帳號裡。</p>
+    el.innerHTML = `<p class="m" style="margin:4px 0 10px">用同一組 Email 在手機、平板、電腦登入，追蹤清單、公司設定、推薦關鍵字會自動同步。第一次登入時，這台的資料會合併到帳號裡。<br>帳號由管理者建立，還沒有帳號請向管理者申請。</p>
       <input id="ac-email" type="email" placeholder="Email" autocomplete="username" inputmode="email" autocapitalize="off">
       <input id="ac-pw" type="password" placeholder="密碼（至少 6 個字）" autocomplete="current-password" style="margin-top:8px">
       <div class="m" id="ac-msg" style="margin-top:6px;min-height:1.2em;color:var(--no)">${esc(CLOUD.err)}</div>
-      <div class="row" style="margin-top:6px"><button class="b" id="ac-in">登入</button><button class="b g" id="ac-up">建立帳號</button><span class="sp"></span><button class="b g" id="ac-reset" style="font-size:13px">忘記密碼</button></div>`;
+      <div class="row" style="margin-top:6px"><button class="b" id="ac-in">登入</button><span class="sp"></span><button class="b g" id="ac-reset" style="font-size:13px">忘記密碼</button></div>`;
     const go = async fn => {
       const email = $('#ac-email').value.trim(), pw = $('#ac-pw').value, m = $('#ac-msg');
       if (!email){ m.textContent = '請輸入 Email'; return; }
@@ -1710,7 +1710,6 @@ function renderAcct(){
     const { Au, auth } = CLOUD.fb;
     $('#ac-in').onclick = () => go((e, p) => Au.signInWithEmailAndPassword(auth, e, p));
     $('#ac-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('#ac-in').click(); });
-    $('#ac-up').onclick = () => go((e, p) => Au.createUserWithEmailAndPassword(auth, e, p));
     $('#ac-reset').onclick = () => go(async e => { await Au.sendPasswordResetEmail(auth, e); const m = $('#ac-msg'); m.style.color = 'var(--ok)'; m.textContent = '已寄出重設密碼信，請到信箱收信（也看一下垃圾郵件）'; });
     return;
   }
