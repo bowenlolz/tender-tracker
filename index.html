@@ -857,12 +857,13 @@ const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')
 async function deflate(str){ if (!window.CompressionStream) return null; return new Uint8Array(await new Response(new Blob([str]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()); }
 async function inflate(u8){ return await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text(); }
 const QR_MAX = 2900;
-async function syncLink(){
+async function syncLink(forQR){
   const base = location.origin + location.pathname, full = JSON.parse(exportData());
   const lite = { ...full, tenders: full.tenders.map(({ title, unit, ...t }) => t) }; // 名稱到另一台會重新抓
   let url;
-  for (const d of [full, lite]){
-    const js = JSON.stringify(d), z = await deflate(js);
+  // QR Code 用精簡版，點比較少、比較好掃
+  for (const d of forQR ? [lite] : [full, lite]){
+    const js = JSON.stringify(d, (k, v) => v === null || v === '' || v === false ? undefined : v), z = await deflate(js);
     url = base + '#sync=' + (z ? 'z' + b64u(z) : 'j' + b64u(new TextEncoder().encode(js)));
     if (url.length <= QR_MAX) return { url, ok: true };
   }
@@ -889,9 +890,9 @@ $('#sync-link').onclick = async () => {
   toast(ok ? '已複製同步連結（也放在下面框框裡），用 LINE 傳給自己' : '自動複製失敗：下面框框裡的連結已選取，請長按「拷貝」');
 };
 $('#sync-qr').onclick = async () => {
-  const { url, ok } = await syncLink(), d = JSON.parse(exportData());
+  const { url, ok } = await syncLink(true), d = JSON.parse(exportData());
   let qrHtml = '';
-  if (ok){ const q = qrcode(0, 'L'); q.addData(url, 'Byte'); q.make(); qrHtml = `<div style="background:#fff;padding:14px;border-radius:14px;max-width:360px;margin:0 auto">${q.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}</div>`; }
+  if (ok){ const q = qrcode(0, 'L'); q.addData(url, 'Byte'); q.make(); qrHtml = `<div style="background:#fff;padding:18px;border-radius:14px;max-width:420px;margin:0 auto">${q.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}</div>`; }
   else qrHtml = '<div class="empty">追蹤的項目太多，QR Code 裝不下。<br>請改用下面的「複製同步連結」，用 LINE 傳到另一台打開。</div>';
   sheetShow('同步到另一台裝置', `<div class="card" style="text-align:center">${qrHtml}
     <p class="m" style="margin-top:12px">用另一台手機的<b>相機</b>對準掃描，打開網頁後選「取代」或「合併」。</p>
@@ -927,52 +928,81 @@ function loadJsQR(){
   return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'jsqr.min.js'; sc.onload = ok; sc.onerror = () => bad(new Error('掃描元件載入失敗，請確認網路')); document.head.appendChild(sc); });
 }
 function stopScan(){ if (!SCAN) return; SCAN.stop = true; SCAN.stream?.getTracks().forEach(t => t.stop()); SCAN = null; }
+// 解一張畫面：先試中間框框（放大），再試整張；偶爾試反色
+function decodeFrame(src, w, h, cv, cx, n){
+  const tries = [];
+  const side = Math.min(w, h) * 0.8;
+  tries.push([(w - side) / 2, (h - side) / 2, side, side, 1000]);
+  tries.push([0, 0, w, h, 1200]);
+  for (const [sx, sy, sw, sh, max] of tries){
+    const k = Math.min(1, max / Math.max(sw, sh)); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+    cx.drawImage(src, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+    const img = cx.getImageData(0, 0, cv.width, cv.height);
+    const r = jsQR(img.data, img.width, img.height, { inversionAttempts: n % 4 === 3 ? 'attemptBoth' : 'dontInvert' });
+    if (r?.data) return r.data;
+  }
+  return '';
+}
+async function gotScan(text, msg){
+  if (/#sync=/.test(text)){
+    let d = null; try { d = await decodeSync(text); } catch(e){}
+    if (d){ stopScan(); navigator.vibrate?.(80); syncPrompt(d); return true; }
+    msg('QR Code 讀到了但內容不完整，請把對方畫面調亮、拿穩再掃一次');
+  } else msg('讀到的不是標案追蹤的同步 QR Code，請掃另一台「顯示同步 QR Code」的畫面');
+  return false;
+}
+async function scanPhoto(file, msg){
+  msg('讀取照片中…');
+  try {
+    await loadJsQR();
+    const bmp = await createImageBitmap(file);
+    const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+    for (let n = 0; n < 4; n++){ const t = decodeFrame(bmp, bmp.width, bmp.height, cv, cx, n === 3 ? 3 : n); if (t) return gotScan(t, msg); }
+    msg('照片裡找不到 QR Code。請靠近一點、讓 QR Code 佔畫面大半、不要反光，再拍一次。');
+  } catch(e){ msg('讀取照片失敗：' + esc(e.message)); }
+}
 async function startScan(){
   sheetShow('掃描同步 QR Code', `<div class="card" style="text-align:center">
     <div style="position:relative;max-width:420px;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4">
-      <video id="scan-v" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;display:block"></video>
-      <div style="position:absolute;inset:12%;border:3px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.25)"></div>
+      <video id="scan-v" playsinline webkit-playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;display:block"></video>
+      <div style="position:absolute;left:10%;right:10%;top:50%;aspect-ratio:1;transform:translateY(-50%);border:3px solid rgba(255,255,255,.9);border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.25)"></div>
     </div>
-    <p class="m" id="scan-msg" style="margin-top:10px">把另一台畫面上的 QR Code 放進框框裡</p></div>`);
+    <p class="m" id="scan-msg" style="margin-top:10px">開啟相機中…</p>
+    <p class="m" style="font-size:12px">讀不到的話：把對方螢幕調亮、手機離 20～30 公分，讓 QR Code 塞滿框框。</p>
+    <div class="row" style="justify-content:center"><label class="b g" style="display:inline-block">📸 改用拍照讀取<input type="file" id="scan-file" accept="image/*" capture="environment" hidden></label></div></div>`);
   const msg = t => { const el = $('#scan-msg'); if (el) el.innerHTML = t; };
-  if (!navigator.mediaDevices?.getUserMedia){ msg('這個瀏覽器不能開相機，請改用「複製同步連結」貼上匯入'); return; }
+  $('#scan-file').onchange = e => { const f = e.target.files[0]; if (f){ stopScan(); scanPhoto(f, msg); } };
+  if (!navigator.mediaDevices?.getUserMedia){ msg('這個瀏覽器不能在網頁裡開相機，請按下面「📸 改用拍照讀取」'); return; }
   const me = SCAN = { stop: false };
-  let det = null;
-  try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) det = new BarcodeDetector({ formats: ['qr_code'] }); } catch(e){}
   try {
-    const [stream] = await Promise.all([navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false }), det ? null : loadJsQR()]);
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
     if (me.stop){ stream.getTracks().forEach(t => t.stop()); return; }
     me.stream = stream;
-    const v = $('#scan-v'); v.srcObject = stream; await v.play().catch(() => {});
+    const v = $('#scan-v'); v.srcObject = stream; v.play().catch(() => {});
+    msg('載入掃描元件…');
+    await loadJsQR();
+    let det = null;
+    try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) det = new BarcodeDetector({ formats: ['qr_code'] }); } catch(e){}
     const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
-    let warned = false;
+    let n = 0, lastText = '';
+    const t0 = Date.now();
     const tick = async () => {
       if (me.stop) return;
       if (v.readyState >= 2 && v.videoWidth){
+        n++;
+        if (n === 1 || n % 10 === 0) msg(`掃描中…把 QR Code 放進框框（${v.videoWidth}×${v.videoHeight}）`);
         let text = '';
-        try {
-          if (det){ const r = await det.detect(v); text = r[0]?.rawValue || ''; }
-          else {
-            const k = Math.min(1, 900 / Math.max(v.videoWidth, v.videoHeight)); cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
-            cx.drawImage(v, 0, 0, cv.width, cv.height); const img = cx.getImageData(0, 0, cv.width, cv.height);
-            text = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' })?.data || '';
-          }
-        } catch(e){}
-        if (text){
-          if (/#sync=/.test(text)){
-            let d = null; try { d = await decodeSync(text); } catch(e){}
-            if (d){ stopScan(); navigator.vibrate?.(80); syncPrompt(d); return; }
-          }
-          if (!warned){ warned = true; msg('這不是標案追蹤的同步 QR Code，請掃另一台「顯示同步 QR Code」的畫面'); }
-        }
-      }
-      setTimeout(tick, det ? 120 : 180);
+        try { if (det){ const r = await det.detect(v); text = r[0]?.rawValue || ''; } } catch(e){ det = null; }
+        if (!text) try { text = decodeFrame(v, v.videoWidth, v.videoHeight, cv, cx, n); } catch(e){}
+        if (text && text !== lastText){ lastText = text; if (await gotScan(text, msg)) return; }
+      } else if (Date.now() - t0 > 5000){ msg('相機畫面沒有出來。請關掉再按一次，或按下面「📸 改用拍照讀取」'); }
+      setTimeout(tick, 100);
     };
     tick();
   } catch(e){
     stopScan();
     const denied = /NotAllowed|Permission/i.test(e.name + e.message);
-    msg(denied ? '沒有相機權限。請到手機「設定」允許這個網頁／Safari 使用相機，或改用「複製同步連結」貼上匯入。' : '無法開啟相機：' + esc(e.message));
+    msg(denied ? '沒有相機權限。請到手機「設定」允許 Safari／這個網頁使用相機，或按下面「📸 改用拍照讀取」。' : '無法開啟相機（' + esc(e.message) + '），請按下面「📸 改用拍照讀取」。');
   }
 }
 $('#sync-scan').onclick = startScan;
