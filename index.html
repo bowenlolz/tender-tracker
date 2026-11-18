@@ -1578,7 +1578,14 @@ S.tenders.filter(t => !t.last).forEach(t => trackNow(t.unit_id, t.job_number));
 
 
 // ---------- 帳號登入・雲端同步（Firebase） ----------
-const FIREBASE_CONFIG = null; // ← 貼上 Firebase 專案的 firebaseConfig
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAeZKOI9D-TUJ3sZbhw3H4i6bUePxisiNw",
+  authDomain: "tender-tracker-b21ee.firebaseapp.com",
+  projectId: "tender-tracker-b21ee",
+  storageBucket: "tender-tracker-b21ee.firebasestorage.app",
+  messagingSenderId: "499705180219",
+  appId: "1:499705180219:web:e1f62602eaad6c944c2c1e"
+};
 const FB_SDK = 'https://www.gstatic.com/firebasejs/11.0.2/';
 const CLOUD = { fb: null, user: undefined, unsub: null, timer: null, busy: false, applying: false, status: '', synced: null, err: '' };
 const hashStr = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = (h * 33 ^ s.charCodeAt(i)) >>> 0; return h.toString(36) + ':' + s.length; };
