@@ -261,8 +261,8 @@ dl.info dt{color:var(--muted)}
     </div>
     <div class="card">
       <div class="t">在手機、平板、電腦之間同步</div>
-      <p class="m">每台裝置的追蹤清單和公司設定分開存。<b>最快：</b>在有最新資料的那台按「顯示同步 QR Code」，用另一台手機的相機掃描，打開網頁後選「取代」或「合併」。也可以按「複製同步連結」用 LINE 傳給自己。</p>
-      <div class="row"><button class="b" id="sync-qr">顯示同步 QR Code</button><button class="b g" id="sync-link">複製同步連結</button></div>
+      <p class="m">每台裝置的追蹤清單和公司設定分開存。<b>最快：</b>在有最新資料的那台按「顯示同步 QR Code」，在要更新的這台按「📷 掃描 QR Code」對準掃描，選「取代」或「合併」就完成，用桌面圖示開的也能直接更新。也可以按「複製同步連結」用 LINE 傳給自己。</p>
+      <div class="row"><button class="b" id="sync-scan">📷 掃描 QR Code</button><button class="b g" id="sync-qr">顯示同步 QR Code</button><button class="b g" id="sync-link">複製同步連結</button></div>
       <p class="m" style="margin:12px 0 6px">其他方式：</p>
       <div class="row"><button class="b g" id="exp">複製備份</button><button class="b g" id="dl">下載備份檔</button><label class="b g" style="display:inline-block">選擇備份檔<input type="file" id="file" accept=".json,application/json" hidden></label></div>
       <textarea id="io" placeholder="把同步連結或備份內容貼在這裡" style="margin-top:10px"></textarea>
@@ -868,7 +868,7 @@ async function syncLink(){
   }
   return { url, ok: false };
 }
-function sheetShow(title, html){ NAV = []; $('#sh-back').hidden = true; $('#sh-title').textContent = title; $('#sh-body').innerHTML = html; $('#sheet').classList.add('on'); document.body.style.overflow = 'hidden'; SHEET_TOK++; }
+function sheetShow(title, html){ stopScan(); NAV = []; $('#sh-back').hidden = true; $('#sh-title').textContent = title; $('#sh-body').innerHTML = html; $('#sheet').classList.add('on'); document.body.style.overflow = 'hidden'; SHEET_TOK++; }
 const syncSummary = d => `公司：${esc(d.company?.name || '（未設定）')}<br>追蹤廠商 ${d.vendors.length} 家・追蹤標案 ${d.tenders.length} 件`;
 function legacyCopy(t){ const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length); let ok = false; try { ok = document.execCommand('copy'); } catch(e){} ta.remove(); return ok; }
 // 在點擊當下就呼叫剪貼簿（iPhone 規定），內容可以晚一點才算好
@@ -907,6 +907,9 @@ async function receiveSync(){
   let d;
   try { d = await decodeSync('#sync=' + m[1] + m[2]); } catch(e){ d = null; }
   if (!d){ toast('同步連結不完整，請重新掃描'); return false; }
+  syncPrompt(d); return true;
+}
+function syncPrompt(d){
   const has = S.vendors.length + S.tenders.length;
   sheetShow('收到同步資料', `<div class="card"><p>${syncSummary(d)}</p>
     <p class="m">${has ? `這台目前有 ${S.vendors.length} 家廠商、${S.tenders.length} 件標案。<br>「取代」會改成跟另一台一模一樣；「合併」會把兩邊的加在一起。` : '這台還沒有追蹤項目，按「取代」即可。'}</p>
@@ -915,8 +918,64 @@ async function receiveSync(){
   $('#rs-rep').onclick = () => { applyData(d, true); done('已同步，正在載入資料'); };
   if (has) $('#rs-mer').onclick = () => done(`合併了 ${applyData(d, false)} 項`);
   $('#rs-no').onclick = closeSheet;
-  return true;
 }
+
+// ---------- 網頁內掃描 QR Code ----------
+let SCAN = null;
+function loadJsQR(){
+  if (window.jsQR) return Promise.resolve();
+  return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'jsqr.min.js'; sc.onload = ok; sc.onerror = () => bad(new Error('掃描元件載入失敗，請確認網路')); document.head.appendChild(sc); });
+}
+function stopScan(){ if (!SCAN) return; SCAN.stop = true; SCAN.stream?.getTracks().forEach(t => t.stop()); SCAN = null; }
+async function startScan(){
+  sheetShow('掃描同步 QR Code', `<div class="card" style="text-align:center">
+    <div style="position:relative;max-width:420px;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4">
+      <video id="scan-v" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;display:block"></video>
+      <div style="position:absolute;inset:12%;border:3px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.25)"></div>
+    </div>
+    <p class="m" id="scan-msg" style="margin-top:10px">把另一台畫面上的 QR Code 放進框框裡</p></div>`);
+  const msg = t => { const el = $('#scan-msg'); if (el) el.innerHTML = t; };
+  if (!navigator.mediaDevices?.getUserMedia){ msg('這個瀏覽器不能開相機，請改用「複製同步連結」貼上匯入'); return; }
+  const me = SCAN = { stop: false };
+  let det = null;
+  try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) det = new BarcodeDetector({ formats: ['qr_code'] }); } catch(e){}
+  try {
+    const [stream] = await Promise.all([navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false }), det ? null : loadJsQR()]);
+    if (me.stop){ stream.getTracks().forEach(t => t.stop()); return; }
+    me.stream = stream;
+    const v = $('#scan-v'); v.srcObject = stream; await v.play().catch(() => {});
+    const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+    let warned = false;
+    const tick = async () => {
+      if (me.stop) return;
+      if (v.readyState >= 2 && v.videoWidth){
+        let text = '';
+        try {
+          if (det){ const r = await det.detect(v); text = r[0]?.rawValue || ''; }
+          else {
+            const k = Math.min(1, 900 / Math.max(v.videoWidth, v.videoHeight)); cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+            cx.drawImage(v, 0, 0, cv.width, cv.height); const img = cx.getImageData(0, 0, cv.width, cv.height);
+            text = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' })?.data || '';
+          }
+        } catch(e){}
+        if (text){
+          if (/#sync=/.test(text)){
+            let d = null; try { d = await decodeSync(text); } catch(e){}
+            if (d){ stopScan(); navigator.vibrate?.(80); syncPrompt(d); return; }
+          }
+          if (!warned){ warned = true; msg('這不是標案追蹤的同步 QR Code，請掃另一台「顯示同步 QR Code」的畫面'); }
+        }
+      }
+      setTimeout(tick, det ? 120 : 180);
+    };
+    tick();
+  } catch(e){
+    stopScan();
+    const denied = /NotAllowed|Permission/i.test(e.name + e.message);
+    msg(denied ? '沒有相機權限。請到手機「設定」允許這個網頁／Safari 使用相機，或改用「複製同步連結」貼上匯入。' : '無法開啟相機：' + esc(e.message));
+  }
+}
+$('#sync-scan').onclick = startScan;
 $('#tok').value = S.token || '';
 $('#savetok').onclick = () => { S.token = $('#tok').value.trim(); save(); toast('已儲存'); };
 
@@ -1055,7 +1114,7 @@ async function openTender(u, j, date){
     </div></div>
     <p class="m" style="text-align:center">資料來源：g0v pcc-api，以政府電子採購網公告為準</p>`;
 }
-function closeSheet(){ $('#sheet').classList.remove('on'); document.body.style.overflow = ''; NAV = []; SHEET_TOK++; }
+function closeSheet(){ stopScan(); $('#sheet').classList.remove('on'); document.body.style.overflow = ''; NAV = []; SHEET_TOK++; }
 $('#sh-x').onclick = closeSheet;
 $('#sheet').addEventListener('click', e => {
   if (e.target.id === 'sheet') return closeSheet();
